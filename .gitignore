@@ -1,0 +1,22 @@
+# Entorno virtual Python
+venv/
+flask_api/venv/
+
+# Node.js
+node_api/node_modules/
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Configuración de editor (opcional)
+.vscode/
+*.code-workspace
+
+# Entornos, configuraciones y secretos
+.env
+
+# Archivos temporales
+*.log
+.DS_Store
+Thumbs.db
