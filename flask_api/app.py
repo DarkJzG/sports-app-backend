@@ -15,9 +15,16 @@ from flask_api.rutas.ruta_registro import registro_bp
 from flask_api.rutas.ruta_login import login_bp
 from flask_api.rutas.ruta_categoria_prd import catg_bp
 
+from flask_api.rutas.ruta_mano_obra import mano_bp
+from flask_api.rutas.ruta_tela import tela_bp
+from flask_api.rutas.ruta_producto import producto_bp
+
 app.register_blueprint(registro_bp)
 app.register_blueprint(login_bp)
 app.register_blueprint(catg_bp)
+app.register_blueprint(mano_bp)
+app.register_blueprint(tela_bp)
+app.register_blueprint(producto_bp)
 
 @app.route("/")
 def home():
