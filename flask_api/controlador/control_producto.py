@@ -7,8 +7,16 @@ def crear_producto():
     data = request.get_json()
     col = get_producto_collection()
 
-    color_info = {
-        'namediseno': data.get('namediseno'),
+
+    nuevo_producto = {
+        'nombre': data.get('nombre'),
+        'observaciones': data.get("observaciones", ""),
+        'categoria': data.get('categoria'),
+        'tela': data.get('tela'),
+        'manoobra': float(data.get('manoobra', 0)),
+        'color': data.get('color', []),
+        'talla': data.get('talla', ''),
+        'namediseno': data.get('namediseno', ''),
         'diseno': float(data.get('diseno', 0)),
         'metrocantidad': float(data.get('metrocantidad', 0)),
         'costounitario': float(data.get('costounitario', 0)),
@@ -16,15 +24,7 @@ def crear_producto():
         'preciomenor': float(data.get('preciomenor', 0)),
         'preciomayor': float(data.get('preciomayor', 0)),
         'ganamenor': float(data.get('ganamenor', 0)),
-        'ganamayor': float(data.get('ganamayor', 0))
-    }
-
-    nuevo_producto = {
-        'nombre': data.get('nombre'),
-        'categoria': data.get('categoria'),
-        'tela': data.get('tela'),
-        'manoobra': float(data.get('manoobra', 0)),
-        'color': [color_info],  # importante: como lista
+        'ganamayor': float(data.get('ganamayor', 0)),
         'imageUrl': data.get('imageUrl'),
         'createdAt': datetime.utcnow()
     }
@@ -55,8 +55,17 @@ def actualizar_producto(id):
     from bson import ObjectId
     data = request.get_json()
 
-    color_info = {
-        'namediseno': data.get('namediseno'),
+
+
+    update_data = {
+        'nombre': data.get('nombre'),
+        'observaciones': data.get("observaciones", ""),
+        'categoria': data.get('categoria'),
+        'tela': data.get('tela'),
+        'manoobra': float(data.get('manoobra', 0)),
+        'color': data.get('color', []),
+        'talla': data.get('talla', ''),
+        'namediseno': data.get('namediseno', ''),
         'diseno': float(data.get('diseno', 0)),
         'metrocantidad': float(data.get('metrocantidad', 0)),
         'costounitario': float(data.get('costounitario', 0)),
@@ -64,15 +73,8 @@ def actualizar_producto(id):
         'preciomenor': float(data.get('preciomenor', 0)),
         'preciomayor': float(data.get('preciomayor', 0)),
         'ganamenor': float(data.get('ganamenor', 0)),
-        'ganamayor': float(data.get('ganamayor', 0))
-    }
-
-    update_data = {
-        'nombre': data.get('nombre'),
-        'categoria': data.get('categoria'),
-        'tela': data.get('tela'),
-        'manoobra': float(data.get('manoobra', 0)),
-        'color': [color_info],
+        'ganamayor': float(data.get('ganamayor', 0)),
+        'updatedAt': datetime.utcnow(),
         'imageUrl': data.get('imageUrl')
     }
 
