@@ -1,4 +1,4 @@
-from flask import jsonify
+from flask import current_app, jsonify
 from flask_api.modelo.modelo_carrito import ModeloCarrito
 from bson.json_util import dumps
 from bson.objectid import ObjectId
@@ -47,3 +47,36 @@ def vaciar_carrito_usuario(user_id):
         return jsonify({"ok": True, "msg": "Carrito vaciado"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
+
+
+def agregar_prenda_al_carrito(data):
+    """
+    data debe contener: userId, prendaId, talla, color, cantidad
+    """
+    try:
+        prendas = current_app.mongo.db.prendas
+        carrito = current_app.mongo.db.carrito
+
+        prenda = prendas.find_one({"_id": ObjectId(data.get("prendaId"))})
+        if not prenda:
+            return jsonify({"ok": False, "msg": "Prenda no encontrada"}), 404
+
+        item_carrito = {
+            "userId": data.get("userId"),
+            "prendaId": prenda["_id"],
+            "tipo_prenda": prenda["tipo_prenda"],
+            "nombre": prenda.get("tipo_prenda", "Prenda Generada"),
+            "imagen_b64": prenda["imagen_b64"],
+            "ficha_tecnica": prenda["ficha_tecnica"],
+            "precio": prenda["costo"],
+            "cantidad": int(data.get("cantidad", 1)),
+            "talla": data.get("talla"),
+            "color": data.get("color"),
+            "estado": "pendiente"
+        }
+
+        result = carrito.insert_one(item_carrito)
+        return jsonify({"ok": True, "msg": "Prenda añadida al carrito", "id": str(result.inserted_id)})
+    
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500

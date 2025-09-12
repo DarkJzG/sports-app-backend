@@ -19,6 +19,11 @@ from flask_api.rutas.ruta_producto import producto_bp
 from flask_api.rutas.ruta_carrito import carrito_bp
 
 from flask_api.rutas.ruta_ia import ruta_ia
+from flask_api.rutas.ruta_ia_stabledf import ruta_ia_stable
+from flask_api.rutas.ruta_ia_prendas import ruta_ia_prendas
+
+from flask_api.rutas.ruta_prendas_ia import prendas_ia_bp
+
 
 app = Flask(__name__)
 
@@ -61,6 +66,9 @@ app.register_blueprint(tela_bp)
 app.register_blueprint(producto_bp)
 app.register_blueprint(carrito_bp)
 app.register_blueprint(ruta_ia)
+app.register_blueprint(ruta_ia_stable)
+app.register_blueprint(ruta_ia_prendas)
+app.register_blueprint(prendas_ia_bp)
 
 @app.route("/")
 def home():

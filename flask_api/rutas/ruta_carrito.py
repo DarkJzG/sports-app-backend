@@ -24,3 +24,9 @@ def delete_item_carrito(item_id):
 @carrito_bp.route("/vaciar/<user_id>", methods=["DELETE"])
 def vaciar_carrito(user_id):
     return control_carrito.vaciar_carrito_usuario(user_id)
+
+@carrito_bp.route("/add_prenda", methods=["POST"])
+def add_prenda():
+    data = request.json
+    return control_carrito.agregar_prenda_al_carrito(data)
+
