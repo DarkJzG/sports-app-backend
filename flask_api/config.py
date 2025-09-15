@@ -8,6 +8,11 @@ class Config:
     # Mongo
     MONGO_URI = os.getenv("MONGO_URI")
 
+    # Cloudinary
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "dcn5d4wbo")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "233547317788382")
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "_Y_acHO10geJ7Z8Nape29CDPOdA")
+
     # Mail
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))

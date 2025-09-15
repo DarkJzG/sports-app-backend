@@ -9,14 +9,13 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from PIL import Image as PILImage
 from bson import ObjectId
+import cloudinary
+import cloudinary.uploader
 
 
 ruta_ia_prendas = Blueprint("ruta_ia_prendas", __name__)
 
-# URL del Automatic1111 con API habilitada
 STABLE_URL = "http://127.0.0.1:7860"
-
-# Negativos recomendados para moda y prendas
 NEGATIVE_PROMPT = (
     "cuerpo, humano, hombre, mujer, maniquí, brazos, manos, "
     "dedos, caras, modelo, manos, extremidades, texto, logotipos"
@@ -35,7 +34,6 @@ def calcular_costo_prenda(tipo_prenda, atributos):
     }
     costo = base_costos.get(tipo_prenda, 10.0)
 
-    # Ajustes simples
     tela = atributos.get("tela", "").lower()
     if tela == "poliéster":
         costo += 1
@@ -56,6 +54,7 @@ def generar_ficha_pdf():
         data = request.get_json()
         ficha = data.get("ficha", {})
         imagen_b64 = data.get("imagen", "")
+        image_url = data.get("imageUrl", "")
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -65,14 +64,10 @@ def generar_ficha_pdf():
         title_style = styles["Heading1"]
         normal = styles["Normal"]
 
-        # --- Título ---
         elements.append(Paragraph("FICHA TÉCNICA DE PRENDA", title_style))
         elements.append(Spacer(1, 0.5*cm))
 
-        # --- Tabla de atributos ---
-        tabla_data = [[
-            "Campo", "Valor"
-        ]]
+        tabla_data = [["Campo", "Valor"]]
         for k, v in ficha.items():
             tabla_data.append([k, v if v else "-"])
 
@@ -90,22 +85,25 @@ def generar_ficha_pdf():
         elements.append(tabla)
         elements.append(Spacer(1, 1*cm))
 
-        # --- Imagen generada ---
+        # --- Imagen ---
         if imagen_b64:
             img_data = base64.b64decode(imagen_b64)
             img_io = io.BytesIO(img_data)
+        elif image_url:
+            resp = requests.get(image_url, stream=True)
+            img_io = io.BytesIO(resp.content)
+        else:
+            img_io = None
+
+        if img_io:
             pil_img = PILImage.open(img_io)
-
-            # Guardar como JPG temporal
-            img_io = io.BytesIO()
-            pil_img.save(img_io, format="JPEG")
-            img_io.seek(0)
-
+            temp_io = io.BytesIO()
+            pil_img.save(temp_io, format="JPEG")
+            temp_io.seek(0)
             elements.append(Paragraph("Imagen de la prenda generada:", styles["Heading2"]))
             elements.append(Spacer(1, 0.2*cm))
-            elements.append(Image(img_io, width=10*cm, height=10*cm, kind="proportional"))
+            elements.append(Image(temp_io, width=10*cm, height=10*cm, kind="proportional"))
 
-        # --- Generar PDF ---
         doc.build(elements)
         buffer.seek(0)
         pdf_b64 = base64.b64encode(buffer.read()).decode("utf-8")
@@ -126,23 +124,17 @@ def generar_imagen_stable():
         atributos = data.get("atributos", {})
         user_id = data.get("userId")
 
-        print("DEBUG Backend: userId recibido:", user_id, type(user_id))
-
         if not tipo_prenda:
             return jsonify({"error": "Falta el campo tipo_prenda"}), 400
-        
-        # Validar user_id (si quieres requerir login para guardar)
+
         if not user_id:
-            # Si quieres permitir generación sin usuario, comenta la siguiente línea.
             return jsonify({"error": "Usuario no autenticado (userId faltante)"}), 401
-        
+
         try:
             user_obj_id = ObjectId(user_id)
-        except (InvalidId, TypeError) as e:
-            print("DEBUG: userId inválido:", user_id, "error:", e)
+        except (InvalidId, TypeError):
             return jsonify({"error": "userId inválido", "recibido": user_id}), 400
 
-        # Prompt dinámico
         prompt = generar_prompt(tipo_prenda, atributos)
 
         payload = {
@@ -153,12 +145,17 @@ def generar_imagen_stable():
             "height": 512
         }
 
-        # Llamada a Stable Diffusion
         response = requests.post(f"{STABLE_URL}/sdapi/v1/txt2img", json=payload)
         r = response.json()
         image_base64 = r["images"][0]
 
-        # Ficha técnica y costo
+        # Subir a Cloudinary
+        image_data = base64.b64decode(image_base64)
+        image_file = io.BytesIO(image_data)
+        upload_result = cloudinary.uploader.upload(image_file, folder="prendasIA")
+        image_url = upload_result.get("secure_url")
+
+        # Guardar en DB
         ficha_tecnica = generar_ficha_tecnica(tipo_prenda, atributos)
         costo = calcular_costo_prenda(tipo_prenda, atributos)
 
@@ -168,19 +165,17 @@ def generar_imagen_stable():
             "tipo_prenda": tipo_prenda,
             "atributos": atributos,
             "prompt": prompt,
-            "imagen_b64": image_base64,
+            "imageUrl": image_url,
             "ficha_tecnica": ficha_tecnica,
             "costo": costo,
             "estado": "generado"
         }
         result = prendas.insert_one(doc)
-        print("DEBUG: prenda insertada id:", str(result.inserted_id))
-
 
         return jsonify({
             "id": str(result.inserted_id),
             "prompt": prompt,
-            "imagen": image_base64,
+            "imageUrl": image_url,
             "ficha_tecnica": ficha_tecnica,
             "costo": costo,
         })
@@ -237,3 +232,27 @@ def generar_ficha_tecnica(tipo_prenda, atributos):
         "Género": atributos.get("genero", ""),
     }
     return ficha
+
+# -------------------------------
+# Listar prendas
+# -------------------------------
+@ruta_ia_prendas.route("/prendas_ia/listar", methods=["GET"])
+def listar_prendas():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Falta el user_id"}), 401
+
+    try:
+        user_obj_id = ObjectId(user_id)
+    except (InvalidId, TypeError):
+        return jsonify({"error": "user_id inválido"}), 400
+
+    prendas_collection = current_app.mongo.db.prendas
+    prendas = list(prendas_collection.find({"user_id": user_obj_id}))
+
+    for prenda in prendas:
+        prenda["_id"] = str(prenda["_id"])
+        prenda["user_id"] = str(prenda["user_id"])
+        prenda["imageUrl"] = prenda.get("imageUrl", None)
+
+    return jsonify({"prendas": prendas}), 200

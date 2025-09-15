@@ -1,5 +1,7 @@
 # flask_api/app.py
 import os
+import cloudinary
+import cloudinary.uploader
 
 from flask import Flask
 from flask_cors import CORS
@@ -26,10 +28,11 @@ from flask_api.rutas.ruta_prendas_ia import prendas_ia_bp
 
 
 app = Flask(__name__)
-
+app.config.from_object(Config)
 
 mongo_uri = os.getenv("MONGO_URI")
 print(f"Conectando a MongoDB con URI: {mongo_uri}")
+
 
 client = MongoClient(mongo_uri)
 db = client["sportsapp"]
@@ -40,9 +43,14 @@ try:
 except Exception as e:
     print("❌ Error conectando a MongoDB:", e)
 
-app.config.from_object(Config)
+mongo = PyMongo(app)
+app.mongo = mongo
 
-
+cloudinary.config(
+    cloud_name=app.config["CLOUDINARY_CLOUD_NAME"],
+    api_key=app.config["CLOUDINARY_API_KEY"],
+    api_secret=app.config["CLOUDINARY_API_SECRET"]
+)
 
 CORS(app, 
      resources={r"/*": {"origins": [
@@ -51,9 +59,9 @@ CORS(app,
     ]}}, 
     supports_credentials=True)
 
+
 mail.init_app(app)
-mongo = PyMongo(app)
-app.mongo = mongo
+
 
 
 
