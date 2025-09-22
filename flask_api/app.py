@@ -9,22 +9,29 @@ from flask_pymongo import PyMongo
 from pymongo import MongoClient
 from flask_api.config import Config
 from flask_api.extensiones import mail
+from flask_jwt_extended import JWTManager
 
-from flask_api.rutas.ruta_registro import registro_bp
-from flask_api.rutas.ruta_login import login_bp
-from flask_api.rutas.ruta_categoria_prd import catg_bp
+from flask_api.rutas.ruta_autenticacion import auth_bp
+
+
+from flask_api.rutas.ruta_categoria_prd import catg_prod_bp
+from flask_api.rutas.ruta_catg_tela import catg_tela_bp
 
 from flask_api.rutas.ruta_mano_obra import mano_bp
 from flask_api.rutas.ruta_tela import tela_bp
+
 from flask_api.rutas.ruta_producto import producto_bp
 
 from flask_api.rutas.ruta_carrito import carrito_bp
+from flask_api.rutas.ruta_pedido import pedido_bp
 
 from flask_api.rutas.ruta_ia import ruta_ia
 from flask_api.rutas.ruta_ia_stabledf import ruta_ia_stable
 from flask_api.rutas.ruta_ia_prendas import ruta_ia_prendas
 
 from flask_api.rutas.ruta_prendas_ia import prendas_ia_bp
+from flask_api.rutas.ruta_ia_texturas import ruta_ia_texturas
+
 
 
 app = Flask(__name__)
@@ -33,6 +40,8 @@ app.config.from_object(Config)
 mongo_uri = os.getenv("MONGO_URI")
 print(f"Conectando a MongoDB con URI: {mongo_uri}")
 
+jwt = JWTManager(app)
+
 
 client = MongoClient(mongo_uri)
 db = client["sportsapp"]
@@ -40,6 +49,8 @@ db = client["sportsapp"]
 try:
     client.admin.command("ping")
     print("✅ Conexión a MongoDB exitosa")
+    print("FRONTEND_URL en app:", app.config["FRONTEND_URL"])
+
 except Exception as e:
     print("❌ Error conectando a MongoDB:", e)
 
@@ -65,18 +76,22 @@ mail.init_app(app)
 
 
 
+app.register_blueprint(auth_bp)
 
-app.register_blueprint(registro_bp)
-app.register_blueprint(login_bp)
-app.register_blueprint(catg_bp)
+app.register_blueprint(catg_prod_bp)
+app.register_blueprint(catg_tela_bp)
 app.register_blueprint(mano_bp)
 app.register_blueprint(tela_bp)
 app.register_blueprint(producto_bp)
+
 app.register_blueprint(carrito_bp)
+app.register_blueprint(pedido_bp)
+
 app.register_blueprint(ruta_ia)
 app.register_blueprint(ruta_ia_stable)
 app.register_blueprint(ruta_ia_prendas)
 app.register_blueprint(prendas_ia_bp)
+app.register_blueprint(ruta_ia_texturas)
 
 @app.route("/")
 def home():

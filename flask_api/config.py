@@ -5,13 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+
+    #URL FRONTEND
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
     # Mongo
     MONGO_URI = os.getenv("MONGO_URI")
+
+    #Stable Diffusion
+    STABLE_URL = os.getenv("STABLE_URL", "http://127.0.0.1:7860")
 
     # Cloudinary
     CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "dcn5d4wbo")
     CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "233547317788382")
     CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "_Y_acHO10geJ7Z8Nape29CDPOdA")
+
+    # JWT
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "clave-secreta-ultra-segura")
+
 
     # Mail
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
