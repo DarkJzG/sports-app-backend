@@ -30,13 +30,16 @@ def _now_utc():
 def build_pedido_doc(user_id: str, data: dict) -> dict:
     tipo_pago = data.get("tipoPago", "completo")  # completo o anticipo
     total = float(data["costos"]["total"])
-    
+
     if tipo_pago == "anticipo":
         monto_pagado = round(total * 0.5, 2)
         saldo_pendiente = total - monto_pagado
     else:
         monto_pagado = total
         saldo_pendiente = 0.0
+
+    direccion = data["direccionEnvio"]
+    tipo_envio = direccion.get("tipoEnvio", "domicilio")
 
     return {
         "userId": ObjectId(user_id),
@@ -48,17 +51,20 @@ def build_pedido_doc(user_id: str, data: dict) -> dict:
                 "precioUnitario": float(i["precioUnitario"]),
                 "imagen": i.get("imagen"),
                 "talla": i.get("talla"),
-                "color": i.get("color"),  # puede ser dict (como vienes enviando)
+                "color": i.get("color"),
             } for i in data["items"]
         ],
-        "direccionEnvio": data["direccionEnvio"],
+        "direccionEnvio": {
+            **direccion,
+            "tipoEnvio": tipo_envio,
+        },
         "metodoPago": data.get("metodoPago", "transferencia"),
         "tipoPago": tipo_pago,
         "montoPagado": monto_pagado,
         "saldoPendiente": saldo_pendiente,
         "costos": {
             "subtotal": float(data["costos"]["subtotal"]),
-            "envio": float(data["costos"]["envio"]),
+            "envio": float(data["costos"]["envio"]),  # 👈 ya contempla $3 si es domicilio
             "impuestos": float(data["costos"]["impuestos"]),
             "total": float(data["costos"]["total"]),
         },
@@ -79,7 +85,6 @@ def build_pedido_doc(user_id: str, data: dict) -> dict:
     }
 
 
-
 def insert_pedido(pedido_doc: dict):
     col = get_pedidos_collection()
     res = col.insert_one(pedido_doc)
@@ -96,10 +101,39 @@ def find_pedidos_by_user(user_id: str, page: int = 1, limit: int = 20):
 def find_all_pedidos(filt: dict, page: int = 1, limit: int = 20):
     col = get_pedidos_collection()
     skip = (page - 1) * limit
-    cursor = col.find(filt).sort("createdAt", -1).skip(skip).limit(limit)
+
+    pipeline = [
+        {"$match": filt},
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {"$lookup": {
+            "from": "users",
+            "localField": "userId",
+            "foreignField": "_id",
+            "as": "usuario"
+        }},
+        {"$unwind": {"path": "$usuario", "preserveNullAndEmptyArrays": True}},
+        {"$addFields": {
+            "clienteNombre": {
+                "$concat": [
+                    {"$ifNull": ["$usuario.nombre", ""]},
+                    " ",
+                    {"$ifNull": ["$usuario.apellido", ""]}
+                ]
+            },
+            "clienteCorreo": "$usuario.correo"
+        }},
+        {"$project": {
+            "usuario.password": 0,  # nunca enviar password
+        }}
+    ]
+
+    cursor = col.aggregate(pipeline)
     items = list(cursor)
     total = col.count_documents(filt)
     return _serialize_list(items), total
+
 
 def update_pedido_status(pedido_id: str, nuevo_estado: str, nota_admin: str = None):
     if nuevo_estado not in ESTADOS_PEDIDO:

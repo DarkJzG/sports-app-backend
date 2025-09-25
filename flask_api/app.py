@@ -3,6 +3,9 @@ import os
 import cloudinary
 import cloudinary.uploader
 
+
+from dotenv import load_dotenv
+
 from flask import Flask
 from flask_cors import CORS
 from flask_pymongo import PyMongo
@@ -12,6 +15,7 @@ from flask_api.extensiones import mail
 from flask_jwt_extended import JWTManager
 
 from flask_api.rutas.ruta_autenticacion import auth_bp
+from flask_api.rutas.ruta_usuario import usuario_bp
 
 
 from flask_api.rutas.ruta_categoria_prd import catg_prod_bp
@@ -25,6 +29,8 @@ from flask_api.rutas.ruta_producto import producto_bp
 from flask_api.rutas.ruta_carrito import carrito_bp
 from flask_api.rutas.ruta_pedido import pedido_bp
 
+
+##Pruebas de IA
 from flask_api.rutas.ruta_ia import ruta_ia
 from flask_api.rutas.ruta_ia_stabledf import ruta_ia_stable
 from flask_api.rutas.ruta_ia_prendas import ruta_ia_prendas
@@ -32,11 +38,17 @@ from flask_api.rutas.ruta_ia_prendas import ruta_ia_prendas
 from flask_api.rutas.ruta_prendas_ia import prendas_ia_bp
 from flask_api.rutas.ruta_ia_texturas import ruta_ia_texturas
 
+from flask_api.rutas.ruta_camiseta_ia import ruta_camiseta_ia
+from flask_api.rutas.ruta_ia_camiseta import ruta_ia_camiseta
+
+
 
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
+
+load_dotenv()
 mongo_uri = os.getenv("MONGO_URI")
 print(f"Conectando a MongoDB con URI: {mongo_uri}")
 
@@ -77,6 +89,7 @@ mail.init_app(app)
 
 
 app.register_blueprint(auth_bp)
+app.register_blueprint(usuario_bp)
 
 app.register_blueprint(catg_prod_bp)
 app.register_blueprint(catg_tela_bp)
@@ -92,6 +105,8 @@ app.register_blueprint(ruta_ia_stable)
 app.register_blueprint(ruta_ia_prendas)
 app.register_blueprint(prendas_ia_bp)
 app.register_blueprint(ruta_ia_texturas)
+app.register_blueprint(ruta_camiseta_ia)
+app.register_blueprint(ruta_ia_camiseta)
 
 @app.route("/")
 def home():
