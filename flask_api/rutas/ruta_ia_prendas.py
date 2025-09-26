@@ -6,41 +6,41 @@ from bson import ObjectId
 from flask_api.controlador.control_ia_prendas import (
     generar_imagen,
     generar_pdf,
-    guardar_prenda_seleccionada
 )
-from flask_api.modelo.modelo_ia_prendas import listar_prendas
+from flask_api.modelo.modelo_ia_prendas import listar_prendas, buscar_prenda, eliminar_prenda
 
 ruta_ia_prendas = Blueprint("ruta_ia_prendas", __name__)
 
 # ---------------------------------------------------------
 # Generar imagen + ficha técnica + costo
-# Compatible con FormCamiseta y GuiaCamiseta
 # ---------------------------------------------------------
 @ruta_ia_prendas.route("/api/ia/generar_prendas", methods=["POST"])
 def generar_prenda():
     data = request.get_json()
-    tipo_prenda = data.get("tipo_prenda", "camiseta")  # por defecto camiseta
+    categoria_id = data.get("categoria_id")    # ✅ corregido
+    categoria_prd = data.get("categoria_prd", "camiseta")
     atributos = data.get("atributos", {})
     user_id = data.get("userId")
 
     if not user_id:
         return jsonify({"error": "Falta userId"}), 401
+    if not categoria_id:
+        return jsonify({"error": "Falta categoria_id"}), 401
 
     try:
         ObjectId(user_id)
+        ObjectId(categoria_id)   # ✅ validar también categoria_id
     except (InvalidId, TypeError):
-        return jsonify({"error": "userId inválido"}), 400
+        return jsonify({"error": "ID inválido"}), 400
 
-    result = generar_imagen(tipo_prenda, atributos, user_id)
+    result = generar_imagen(categoria_id, categoria_prd, atributos, user_id)
     return jsonify(result), (200 if "error" not in result else 500)
-
 
 # ---------------------------------------------------------
 # Guardar selección de una imagen generada
-# (caso GuiaCamiseta.jsx que muestra varias opciones)
 # ---------------------------------------------------------
 @ruta_ia_prendas.route("/api/ia/prendas/guardar", methods=["POST"])
-def guardar_prenda():
+def guardar_prenda_api():
     data = request.get_json()
     user_id = data.get("userId")
     prompt = data.get("prompt")
@@ -58,9 +58,8 @@ def guardar_prenda():
     result = guardar_prenda_seleccionada(user_id, prompt, image_base64, atributos)
     return jsonify(result), (200 if result.get("ok") else 500)
 
-
 # ---------------------------------------------------------
-# Generar PDF ficha técnica (compatible con ambos flujos)
+# Generar PDF ficha técnica
 # ---------------------------------------------------------
 @ruta_ia_prendas.route("/api/ia/ficha_tecnica", methods=["POST"])
 def ficha_pdf():
@@ -71,7 +70,6 @@ def ficha_pdf():
 
     pdf_b64 = generar_pdf(ficha, imagen_b64, image_url)
     return jsonify({"ok": True, "pdf_base64": pdf_b64}), 200
-
 
 # ---------------------------------------------------------
 # Listar prendas de un usuario
@@ -89,6 +87,33 @@ def listar():
     prendas = listar_prendas(user_id)
     return jsonify({"prendas": prendas}), 200
 
+# ---------------------------------------------------------
+# Obtener prenda por ID
+# ---------------------------------------------------------
+@ruta_ia_prendas.route("/api/ia/prendas/<prenda_id>", methods=["GET"])
+def obtener_prenda(prenda_id):
+    try:
+        ObjectId(prenda_id)
+    except (InvalidId, TypeError):
+        return jsonify({"error": "ID inválido"}), 400
+
+    prenda = buscar_prenda(prenda_id)
+    if not prenda:
+        return jsonify({"error": "Prenda no encontrada"}), 404
+    return jsonify(prenda), 200
+
+# ---------------------------------------------------------
+# Eliminar prenda
+# ---------------------------------------------------------
+@ruta_ia_prendas.route("/api/ia/prendas/eliminar/<prenda_id>", methods=["DELETE"])
+def eliminar(prenda_id):
+    try:
+        ObjectId(prenda_id)
+    except (InvalidId, TypeError):
+        return jsonify({"error": "ID inválido"}), 400
+
+    ok = eliminar_prenda(prenda_id)
+    return jsonify({"ok": ok}), (200 if ok else 404)
 
 # ---------------------------------------------------------
 # Endpoint para verificar la URL de Stable Diffusion

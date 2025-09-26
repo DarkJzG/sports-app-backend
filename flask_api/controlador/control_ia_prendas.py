@@ -17,6 +17,67 @@ NEGATIVE_PROMPT = (
     "limbs, text, logos"
 )
 
+MAPEO_ATRIBUTOS_ES = {
+    #Tela
+    "cotton" : "algodón",
+    "polyester" : "poliéster",
+    "cotton/polyester blend" : "algodón/poliéster",
+
+    # Estilos
+    "sports style": "deportiva",
+    "casual style": "casual",
+    "urban style": "urbana",
+    "retro style": "retro",
+
+    # Colores
+    "black": "negro",
+    "white": "blanco",
+    "red": "rojo",
+    "blue": "azul",
+    "green": "verde",
+    "yellow": "amarillo",
+    "gray": "gris",
+    "orange": "naranja",
+    "purple": "morado",
+    "sky blue": "celeste",
+
+    # Cuello
+    "round neck": "cuello redondo",
+    "V-neck": "cuello en V",
+    "polo collar": "cuello polo",
+
+    # Mangas
+    "short sleeves": "manga corta",
+    "long sleeves": "manga larga",
+
+    # Diseños
+    "striped": "rayas",
+    "lined": "líneas",
+    "geometric": "geométrico",
+    "abstract": "abstracto",
+    "paint splatter": "manchas de pintura",
+    "gradient": "degradado",
+    "other": "otro",
+
+    # Estilos avanzados
+    "brush strokes": "brochazos",
+    "splatter": "salpicaduras",
+    "minimalist": "minimalista",
+    "futuristic": "futurista",
+    "camouflage": "camuflaje",
+
+    # Acabados
+    "matte finish": "mate",
+    "glossy finish": "brillante",
+    "textured finish": "texturizado",
+
+    # Género
+    "male": "hombre",
+    "female": "mujer",
+    "unisex": "unisex",
+}
+
+
 # --------------------------------------
 # Diccionario básico EN → ES (para mostrar al cliente)
 # --------------------------------------
@@ -25,24 +86,38 @@ TRADUCCION_BASICA_INVERSA = {
     "sports style": "deportiva",
     "urban style": "urbana",
     "casual style": "casual",
-    "formal style": "formal",
+    "retro style": "retro",
     "round neck": "cuello redondo",
     "V-neck": "cuello en V",
     "polo collar": "cuello polo",
     "short sleeves": "manga corta",
     "long sleeves": "manga larga",
     "sleeveless": "sin mangas",
-    "stripes": "rayas",
-    "checkered pattern": "cuadros",
-    "polka dots": "círculos",
     "gradient": "degradado",
-    "printed": "estampado",
-    "sublimated": "sublimado",
-    "embroidered": "bordado",
-    "plain white background": "fondo blanco liso",
+    "paint splatter": "manchas de pintura",
+    "geometric": "geométrico",
+    "abstract": "abstracto",
+    "ribbed details on collar and sleeves": "ribetes en cuello y mangas",
+    "bicolor sleeves and collar": "bicolor en mangas/cuello",
+    "visible seams": "costuras visibles",
+    "matte finish": "acabado mate",
+    "glossy finish": "acabado brillante",
+    "textured finish": "acabado texturizado",
     "studio lighting": "iluminación de estudio",
+    "plain white background": "fondo blanco liso",
     "sharp focus": "enfoque nítido",
 }
+
+def traducir_atributos_es(atributos):
+    traducidos = {}
+    for clave, valor in atributos.items():
+        if isinstance(valor, list):
+            traducidos[clave] = [MAPEO_ATRIBUTOS_ES.get(v, v) for v in valor]
+        else:
+            traducidos[clave] = MAPEO_ATRIBUTOS_ES.get(valor, valor)
+    return traducidos
+
+
 
 def traducir_prompt_en_es(prompt_en: str) -> str:
     prompt_es = prompt_en
@@ -51,10 +126,55 @@ def traducir_prompt_en_es(prompt_en: str) -> str:
     return prompt_es
 
 
+def calcular_precio_final(categoria_id, atributos):
+    db = current_app.mongo.db
+    mano = None
+    try:
+        mano = db.mano_obra.find_one({"categoria_id": ObjectId(categoria_id)})
+    except Exception:
+        pass
+
+    if not mano:
+         mano = db.mano_obra.find_one({"categoria_id": str(categoria_id)})
+         
+    if not mano:
+        return {"costo": 0, "precio": 0, "precio_mayor": 0}
+
+    # costos base de mano de obra
+    insumos = float(mano.get("insumosTotal", 0))
+    mano_prenda = float(mano.get("mano_obra_prenda", 0))
+
+    # tela (ej: 1.20 m × $1.50)
+    metros_tela = 1.20
+    precio_metro = 1.50
+    costo_tela = metros_tela * precio_metro
+
+    # sublimado/bordado si el diseño lo requiere
+    costo_diseno = 0
+    if atributos.get("diseno") in ["sublimado", "bordado"]:
+        costo_diseno = 4.0
+
+    # total de costos
+    costo = insumos + mano_prenda + costo_tela + costo_diseno
+
+    # precio final = costo + ganancia
+    ganancia = 3.0
+    precio_venta = costo + ganancia
+
+    # precio al mayor (ej. 10% descuento)
+    precio_mayor = precio_venta * 0.9
+
+    return {
+        "costo": round(costo, 2),
+        "precio": round(precio_venta, 2),
+        "precio_mayor": round(precio_mayor, 2)
+    }
+
+
 # --------------------------------------
 # Costos
 # --------------------------------------
-def calcular_costo_prenda(tipo_prenda, atributos):
+def calcular_costo_prenda(categoria_prd, atributos):
     base_costos = {
         "camiseta": 5.0,
         "pantalon": 8.0,
@@ -62,7 +182,7 @@ def calcular_costo_prenda(tipo_prenda, atributos):
         "conjunto_interno": 15.0,
         "conjunto_externo": 20.0,
     }
-    costo = base_costos.get(tipo_prenda, 10.0)
+    costo = base_costos.get(categoria_prd, 10.0)
 
     tela = atributos.get("tela", "").lower()
     if tela == "poliéster":
@@ -79,28 +199,45 @@ def calcular_costo_prenda(tipo_prenda, atributos):
 # --------------------------------------
 # PROMPT en inglés → traducido a español
 # --------------------------------------
-def generar_prompt(tipo_prenda, atributos):
-    if tipo_prenda == "camiseta":
+def generar_prompt(categoria_prd, atributos):
+    if categoria_prd == "Camiseta":
         estilo = atributos.get("estilo", "")
         color1 = atributos.get("color1", "")
         color2 = atributos.get("color2", "")
+        diseno = atributos.get("diseno", "")
         cuello = atributos.get("cuello", "")
         manga = atributos.get("manga", "")
-        patron = atributos.get("patron", "")
-        color_patron = atributos.get("colorPatron", "")
+        tela = atributos.get("tela", "")
+        genero = atributos.get("genero", "")
+
+
+        # Nuevos campos
+        estiloAvanzado = atributos.get("estiloAvanzado", "")
+        ubicacion = atributos.get("ubicacion", "")
+        detalles = atributos.get("detalles", [])
+        acabado = atributos.get("acabado", "")
 
         partes_en = [
-            f"Centered front view, high-quality mockup of a {color1} {estilo} T-shirt"
+            f"Centered front view, high-quality mockup of a {color1} {tela} {estilo} T-shirt"
         ]
 
-        if color2:
+        if diseno and color2:
+            partes_en.append(f"featuring a {color2} {diseno} design {('on ' + ubicacion) if ubicacion else ''}")
+        elif color2:
             partes_en.append(f"with {color2} details")
-        if patron and color_patron:
-            partes_en.append(f"with {color_patron} {patron.lower()} pattern")
+
+        if estiloAvanzado:
+            partes_en.append(estiloAvanzado)
         if cuello:
-            partes_en.append(f"{cuello} neck")
+            partes_en.append(cuello)
         if manga:
-            partes_en.append(f"{manga} sleeves")
+            partes_en.append(manga)
+        if genero:
+            partes_en.append(f"for {genero}")
+        if detalles:
+            partes_en.append(", ".join(detalles))
+        if acabado:
+            partes_en.append(acabado)
 
         partes_en.extend([
             "studio lighting",
@@ -113,29 +250,58 @@ def generar_prompt(tipo_prenda, atributos):
         ])
 
         prompt_en = ", ".join(partes_en)
-        prompt_es = traducir_prompt_en_es(prompt_en)  # traducido para mostrar al usuario
+        prompt_es = traducir_prompt_en_es(prompt_en)
 
         return prompt_es, prompt_en
 
     # fallback
-    prompt_en = f"{tipo_prenda} with attributes: {atributos}"
+    prompt_en = f"{categoria_prd} with attributes: {atributos}"
     prompt_es = traducir_prompt_en_es(prompt_en)
     return prompt_es, prompt_en
+
+
+def generar_descripcion_es(categoria_prd, atributos_es):
+    partes = [f"{categoria_prd.capitalize()} de {atributos_es.get('tela', '')} con estilo {atributos_es.get('estilo', '')}"]
+
+    color1 = atributos_es.get("color1")
+    color2 = atributos_es.get("color2")
+    if color1 and color2:
+        partes.append(f"de color {color1} con {color2}")
+    elif color1:
+        partes.append(f"de color {color1}")
+
+    diseno = atributos_es.get("diseno")
+    if diseno:
+        partes.append(f"con un diseño de {diseno}")
+
+    estiloAvanzado = atributos_es.get("estiloAvanzado")
+    if estiloAvanzado:
+        partes.append(estiloAvanzado)
+
+    acabado = atributos_es.get("acabado")
+    if acabado:
+        partes.append(f"con acabado {acabado}")
+
+    return " ".join(partes)
 
 
 # --------------------------------------
 # Ficha técnica
 # --------------------------------------
-def generar_ficha_tecnica(tipo_prenda, atributos):
+def generar_ficha_tecnica(categoria_prd, atributos):
     return {
-        "Tipo": tipo_prenda,
+        "Tipo": categoria_prd,
         "Estilo": atributos.get("estilo", ""),
-        "Colores": f"{atributos.get('color1','')} {atributos.get('color2','')}".strip(),
-        "Patrón": atributos.get("patron", ""),
-        "Color patrón": atributos.get("colorPatron", ""),
-        "Talla": atributos.get("talla", ""),
-        "Tela": atributos.get("tela", ""),
+        "Color principal": atributos.get("color1", ""),
+        "Color secundario": atributos.get("color2", ""),
         "Diseño": atributos.get("diseno", ""),
+        "Estilo avanzado": atributos.get("estiloAvanzado", ""),
+        "Ubicación diseño": atributos.get("ubicacion", ""),
+        "Detalles": ", ".join(atributos.get("detalles", [])),
+        "Acabado": atributos.get("acabado", ""),
+        "Cuello": atributos.get("cuello", ""),
+        "Manga": atributos.get("manga", ""),
+        "Tela": atributos.get("tela", ""),
         "Género": atributos.get("genero", ""),
     }
 
@@ -143,28 +309,26 @@ def generar_ficha_tecnica(tipo_prenda, atributos):
 # --------------------------------------
 # Generar imágenes
 # --------------------------------------
-def generar_imagen(tipo_prenda, atributos, user_id):
+def generar_imagen(categoria_id, categoria_prd, atributos, user_id):
     STABLE_URL = current_app.config.get("STABLE_URL", "http://127.0.0.1:7860")
-    prompt_es, prompt_en = generar_prompt(tipo_prenda, atributos)
+    prompt_es, prompt_en = generar_prompt(categoria_prd, atributos)
 
-    # Form vs Guía
-    origen = atributos.get("origen", "form")
-    batch_size = 2 if origen == "guia" else 1
-    width = 512 if origen == "guia" else 1064
-    height = 512 if origen == "guia" else 1064
+    # Traducción de atributos
+    atributos_es = traducir_atributos_es(atributos)
+    descripcion_es = generar_descripcion_es(categoria_prd, atributos_es)
 
     payload = {
-        "prompt": prompt_en,   # SOLO en inglés para Stable Diffusion
+        "prompt": prompt_en,
         "negative_prompt": NEGATIVE_PROMPT,
-        "steps": 28,
+        "steps": 30,
         "sampler_name": "DPM++ 2M",
         "cfg_scale": 7,
-        "width": width,
-        "height": height,
-        "batch_size": batch_size
+        "width": 800,
+        "height": 800,
+        "batch_size": 1
     }
 
-    current_app.logger.info(f"📡 POST {STABLE_URL}/sdapi/v1/txt2img (batch={batch_size})")
+    current_app.logger.info(f"📡 POST {STABLE_URL}/sdapi/v1/txt2img")
     try:
         response = requests.post(f"{STABLE_URL}/sdapi/v1/txt2img", json=payload, timeout=120)
         response.raise_for_status()
@@ -181,60 +345,37 @@ def generar_imagen(tipo_prenda, atributos, user_id):
         upload_result = cloudinary.uploader.upload(image_file, folder="prendasIA")
         image_url = upload_result.get("secure_url")
 
-        ficha_tecnica = generar_ficha_tecnica(tipo_prenda, atributos)
-        costo = calcular_costo_prenda(tipo_prenda, atributos)
+        ficha_tecnica = generar_ficha_tecnica(categoria_prd, atributos_es)
+        precios = calcular_precio_final(categoria_id, atributos_es)
 
         doc = {
             "user_id": ObjectId(user_id),
-            "tipo_prenda": tipo_prenda,
-            "atributos": atributos,
-            "prompt_es": prompt_es,  # para mostrar al cliente
-            "prompt_en": prompt_en,  # para historial técnico
+            "categoria_prd": categoria_prd,
+            "atributos": atributos_es,
+            "prompt_es": prompt_es,
+            "descripcion_es": descripcion_es,
+            "prompt_en": prompt_en,
             "imageUrl": image_url,
             "ficha_tecnica": ficha_tecnica,
-            "costo": costo,
+            "costo": precios["costo"],
+            "precio_venta": precios["precio"],
+            "precio_mayor": precios["precio_mayor"],
             "estado": "generado"
         }
         inserted_id = guardar_prenda(doc)
 
         return {
             "id": inserted_id,
-            "prompt": prompt_es,   # mostramos el español al cliente
-            "prompt_en": prompt_en,
-            "images": images,
+            "descripcion": descripcion_es,
             "imageUrl": image_url,
             "ficha_tecnica": ficha_tecnica,
-            "costo": costo,
+            "costo": precios["costo"],
+            "precio_venta": precios["precio"],
+            "precio_mayor": precios["precio_mayor"],
         }
 
     except Exception as e:
         return {"error": f"Error al generar imagen en Stable Diffusion: {str(e)}"}
-
-
-# --------------------------------------
-# Guardar prenda seleccionada desde Guia
-# --------------------------------------
-def guardar_prenda_seleccionada(user_id, prompt, image_base64, atributos):
-    try:
-        upload_result = cloudinary.uploader.upload(
-            f"data:image/png;base64,{image_base64}",
-            folder="prendasIA"
-        )
-        url = upload_result["secure_url"]
-
-        doc = {
-            "user_id": ObjectId(user_id),
-            "prompt": prompt,
-            "imageUrl": url,
-            "atributos": atributos,
-            "estado": "seleccionado"
-        }
-        prenda_id = guardar_prenda(doc)
-
-        return {"ok": True, "id": prenda_id, "url": url}
-    except Exception as e:
-        return {"ok": False, "msg": str(e)}
-
 
 # --------------------------------------
 # PDF ficha técnica
@@ -280,5 +421,3 @@ def generar_pdf(ficha, imagen_b64=None, image_url=None):
     buffer.seek(0)
     pdf_b64 = base64.b64encode(buffer.read()).decode("utf-8")
     return pdf_b64
-
-
