@@ -82,11 +82,27 @@ MAPEO_ATRIBUTOS_ES = {
 # Diccionario básico EN → ES (para mostrar al cliente)
 # --------------------------------------
 TRADUCCION_BASICA_INVERSA = {
+    # prendas
     "T-shirt": "camiseta",
+    "sports T-shirt": "camiseta deportiva",
+    "jogger pants": "pantalón jogger",
+    "pants": "pantalón",
+    "shorts": "pantaloneta",
+    "hoodie": "chompa",
+    "hoodie jacket": "chompa con cierre",
+    "jacket": "chaqueta",
+    "outfit": "conjunto",
+    "set": "conjunto",
+    "two-piece": "dos piezas",
+    "sportswear set": "conjunto deportivo",
+
+    # estilos
     "sports style": "deportiva",
     "urban style": "urbana",
     "casual style": "casual",
     "retro style": "retro",
+
+    # detalles generales
     "round neck": "cuello redondo",
     "V-neck": "cuello en V",
     "polo collar": "cuello polo",
@@ -100,13 +116,49 @@ TRADUCCION_BASICA_INVERSA = {
     "ribbed details on collar and sleeves": "ribetes en cuello y mangas",
     "bicolor sleeves and collar": "bicolor en mangas/cuello",
     "visible seams": "costuras visibles",
+
+    # acabado/estudio
     "matte finish": "acabado mate",
     "glossy finish": "acabado brillante",
     "textured finish": "acabado texturizado",
+    "professional studio lighting": "iluminación profesional de estudio",
     "studio lighting": "iluminación de estudio",
+    "product catalog photo": "foto de catálogo de producto",
     "plain white background": "fondo blanco liso",
+    "isolated background": "fondo aislado",
     "sharp focus": "enfoque nítido",
+    "no wrinkles": "sin arrugas",
 }
+
+
+PROMPTS_CATEGORIA = {
+    "camiseta": {
+        "base": "Centered front view, athletic slim-fit sports T-shirt",
+        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the T-shirt",
+    },
+    "pantalon": {
+        "base": "Centered front view, sports jogger pants with elastic waistband and tapered fit",
+        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the pants",
+    },
+    "chompa": {
+        "base": "Centered front view, hoodie jacket with zipper and drawstrings, athletic style",
+        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the hoodie",
+    },
+    "conjunto_interno": {
+        # camiseta + pantaloneta
+        "base": "Centered front view, two-piece sportswear set: athletic sports T-shirt and shorts, displayed side by side",
+        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the outfit",
+    },
+    "conjunto_externo": {
+        # chompa + pantalón
+        "base": "Centered front view, two-piece sportswear set: hoodie jacket and jogger pants, displayed side by side",
+        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the outfit",
+    },
+}
+
+def _norm_cat(categoria_prd: str) -> str:
+    return (categoria_prd or "").strip().lower()
+
 
 def traducir_atributos_es(atributos):
     traducidos = {}
@@ -136,7 +188,7 @@ def calcular_precio_final(categoria_id, atributos):
 
     if not mano:
          mano = db.mano_obra.find_one({"categoria_id": str(categoria_id)})
-         
+
     if not mano:
         return {"costo": 0, "precio": 0, "precio_mayor": 0}
 
@@ -200,7 +252,21 @@ def calcular_costo_prenda(categoria_prd, atributos):
 # PROMPT en inglés → traducido a español
 # --------------------------------------
 def generar_prompt(categoria_prd, atributos):
-    if categoria_prd == "Camiseta":
+    cat = _norm_cat(categoria_prd)
+
+    # Mapea nombres comunes (por si te llegan "Camiseta" con mayúscula)
+    alias = {
+        "camiseta": "camiseta",
+        "pantalon": "pantalon",
+        "pantalón": "pantalon",
+        "chompa": "chompa",
+        "conjunto interno": "conjunto_interno",
+        "conjunto_externo": "conjunto_externo",
+    }
+    cat = alias.get(cat, cat)
+
+    # Si tenemos prompt base para esa categoría, lo usamos
+    if cat in PROMPTS_CATEGORIA:
         estilo = atributos.get("estilo", "")
         color1 = atributos.get("color1", "")
         color2 = atributos.get("color2", "")
@@ -210,54 +276,64 @@ def generar_prompt(categoria_prd, atributos):
         tela = atributos.get("tela", "")
         genero = atributos.get("genero", "")
 
-
-        # Nuevos campos
         estiloAvanzado = atributos.get("estiloAvanzado", "")
         ubicacion = atributos.get("ubicacion", "")
         detalles = atributos.get("detalles", [])
         acabado = atributos.get("acabado", "")
 
-        partes_en = [
-            f"Centered front view, high-quality mockup of a {color1} {tela} {estilo} T-shirt"
-        ]
+        base = PROMPTS_CATEGORIA[cat]["base"]
+        tail = PROMPTS_CATEGORIA[cat]["tail"]
 
+        # Arrancamos con el "base" y añadimos color/tela/estilo si existen
+        partes_en = [base]
+
+        # Color principal + tela + estilo (si existen)
+        # Ej: "in blue polyester fabric, sports style"
+        comp = []
+        if color1:
+            comp.append(f"in {color1}")
+        if tela:
+            comp.append(f"{tela} fabric")
+        if estilo:
+            comp.append(estilo)
+        if comp:
+            partes_en.append(", ".join(comp))
+
+        # Diseño secundario/color2/ubicación (si aplica)
         if diseno and color2:
-            partes_en.append(f"featuring a {color2} {diseno} design {('on ' + ubicacion) if ubicacion else ''}")
+            # Ej: "featuring a red geometric design on chest only"
+            partes_en.append(
+                f"featuring a {color2} {diseno} design{(' on ' + ubicacion) if ubicacion else ''}"
+            )
         elif color2:
             partes_en.append(f"with {color2} details")
 
-        if estiloAvanzado:
-            partes_en.append(estiloAvanzado)
+        # Campos específicos que aportan a la forma
         if cuello:
             partes_en.append(cuello)
         if manga:
             partes_en.append(manga)
         if genero:
             partes_en.append(f"for {genero}")
+        if estiloAvanzado:
+            partes_en.append(estiloAvanzado)
         if detalles:
             partes_en.append(", ".join(detalles))
         if acabado:
             partes_en.append(acabado)
 
-        partes_en.extend([
-            "studio lighting",
-            "plain white background",
-            "sharp focus",
-            "no logos",
-            "no text",
-            "no limbs",
-            "just the T-shirt"
-        ])
+        # Cola de calidad fotográfica y limpieza
+        partes_en.append(tail)
 
         prompt_en = ", ".join(partes_en)
         prompt_es = traducir_prompt_en_es(prompt_en)
-
         return prompt_es, prompt_en
 
-    # fallback
+    # 🔙 fallback actual (si la categoría no está mapeada)
     prompt_en = f"{categoria_prd} with attributes: {atributos}"
     prompt_es = traducir_prompt_en_es(prompt_en)
     return prompt_es, prompt_en
+
 
 
 def generar_descripcion_es(categoria_prd, atributos_es):

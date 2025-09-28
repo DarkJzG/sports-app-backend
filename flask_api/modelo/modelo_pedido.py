@@ -28,62 +28,88 @@ def _now_utc():
     return datetime.now(timezone.utc)
 
 def build_pedido_doc(user_id: str, data: dict) -> dict:
-    tipo_pago = data.get("tipoPago", "completo")  # completo o anticipo
+    tipo_pago = data.get("tipoPago", "completo")
     total = float(data["costos"]["total"])
 
+    # Calcular montos según el tipo de pago
     if tipo_pago == "anticipo":
-        monto_pagado = round(total * 0.5, 2)
-        saldo_pendiente = total - monto_pagado
+        monto_anticipo = round(total * 0.5, 2)  # 50% de anticipo
+        saldo_pendiente = round(total - monto_anticipo, 2)
+        estado = "pendiente_pago"
     else:
-        monto_pagado = total
+        monto_anticipo = total
         saldo_pendiente = 0.0
+        estado = "pagado_total"
 
     direccion = data["direccionEnvio"]
     tipo_envio = direccion.get("tipoEnvio", "domicilio")
 
-    return {
+    # Construir el documento del pedido
+    pedido_doc = {
         "userId": ObjectId(user_id),
         "items": [
             {
-                "productId": ObjectId(i["productId"]),
-                "nombre": i["nombre"],
-                "cantidad": int(i["cantidad"]),
-                "precioUnitario": float(i["precioUnitario"]),
-                "imagen": i.get("imagen"),
-                "talla": i.get("talla"),
-                "color": i.get("color"),
-            } for i in data["items"]
+                "productId": ObjectId(item["productId"]),
+                "nombre": item["nombre"],
+                "cantidad": int(item["cantidad"]),
+                "precioUnitario": float(item["precioUnitario"]),
+                "talla": item.get("talla"),
+                "color": item.get("color"),
+                "imagen": item.get("imagen")
+            } for item in data["items"]
         ],
         "direccionEnvio": {
-            **direccion,
             "tipoEnvio": tipo_envio,
+            "nombre": direccion.get("nombre"),
+            "direccion_principal": direccion.get("direccion_principal"),
+            "direccion_secundaria": direccion.get("direccion_secundaria", ""),
+            "ciudad": direccion.get("ciudad"),
+            "provincia": direccion.get("provincia"),
+            "pais": direccion.get("pais", "Ecuador"),
+            "telefono": direccion.get("telefono"),
+            "codigo_postal": direccion.get("codigo_postal"),
+            "detalle": direccion.get("detalle", "Retiro en Tienda" if tipo_envio == "retiro" else "")
         },
         "metodoPago": data.get("metodoPago", "transferencia"),
         "tipoPago": tipo_pago,
-        "montoPagado": monto_pagado,
-        "saldoPendiente": saldo_pendiente,
+        "montoPagado": monto_anticipo if tipo_pago == "anticipo" else total,
+        "saldoPendiente": saldo_pendiente if tipo_pago == "anticipo" else 0.0,
         "costos": {
             "subtotal": float(data["costos"]["subtotal"]),
-            "envio": float(data["costos"]["envio"]),  # 👈 ya contempla $3 si es domicilio
+            "envio": float(data["costos"]["envio"]),
             "impuestos": float(data["costos"]["impuestos"]),
             "total": float(data["costos"]["total"]),
         },
-        "estado": "pendiente_pago",
-        "referenciasPago": [
-            {
-                "monto": monto_pagado,
-                "referencia": data.get("referenciaPago"),
-                "fecha": _now_utc(),
-                "presencial": bool(data.get("presencial", False)),
-            }
-        ],
+        "estado": estado,
+        "pagos": [],  # Nuevo array para historial de pagos
         "createdAt": _now_utc(),
         "updatedAt": _now_utc(),
         "timeline": [
-            {"evento": "creado", "estado": "pendiente_pago", "ts": _now_utc()}
+            {
+                "evento": "creado",
+                "estado": estado,
+                "ts": _now_utc(),
+                "nota": "Pedido creado" + ("" if estado == "pendiente_pago" else " con pago completo")
+            }
         ],
     }
 
+    # Si hay un comprobante de transferencia, agregarlo como primer pago
+    if "imagenTransferencia" in data:
+        pago = {
+            "monto": monto_anticipo if tipo_pago == "anticipo" else total,
+            "fecha": _now_utc(),
+            "referencia": data.get("referenciaPago", "Pago inicial"),
+            "comprobante": data["imagenTransferencia"],
+            "tipo": "anticipo" if tipo_pago == "anticipo" else "completo",
+            "estado": "aprobado",
+            "nota": "Pago inicial del pedido"
+        }
+        pedido_doc["pagos"].append(pago)
+        pedido_doc["referenciaPago"] = pago["referencia"]
+        pedido_doc["comprobanteTransferencia"] = pago["comprobante"]
+
+    return pedido_doc
 
 def insert_pedido(pedido_doc: dict):
     col = get_pedidos_collection()
@@ -153,28 +179,38 @@ def _to_iso(dt):
     except Exception:
         return dt
 
+# En la función _serialize, asegúrate de incluir el campo imagenComprobante
 def _serialize(doc: dict) -> dict:
     if not doc:
         return None
+        
     doc["_id"] = str(doc["_id"])
     doc["userId"] = str(doc["userId"])
-    # fechas
-    if "createdAt" in doc: doc["createdAt"] = _to_iso(doc["createdAt"])
-    if "updatedAt" in doc: doc["updatedAt"] = _to_iso(doc["updatedAt"])
-    # timeline
-    for ev in doc.get("timeline", []):
-        if "ts" in ev:
-            ev["ts"] = _to_iso(ev["ts"])
-    # pagos
-    for ref in doc.get("referenciasPago", []):
-        if "fecha" in ref:
-            ref["fecha"] = _to_iso(ref["fecha"])
-    # items
-    for it in doc.get("items", []):
-        if "productId" in it and isinstance(it["productId"], ObjectId):
-            it["productId"] = str(it["productId"])
+    
+    # Serializar pagos si existen
+    if "pagos" in doc:
+        for pago in doc["pagos"]:
+            pago["fecha"] = _to_iso(pago["fecha"])
+    
+    # Serializar timeline
+    if "timeline" in doc:
+        for event in doc["timeline"]:
+            event["ts"] = _to_iso(event["ts"])
+    
+    # Asegurarse de que los campos de costo sean float
+    if "costos" in doc:
+        for k, v in doc["costos"].items():
+            if isinstance(v, (int, float)):
+                doc["costos"][k] = float(v)
+    
+    # Asegurarse de que los items tengan los campos correctos
+    if "items" in doc:
+        for item in doc["items"]:
+            item["productId"] = str(item["productId"])
+            if "precioUnitario" in item:
+                item["precioUnitario"] = float(item["precioUnitario"])
+    
     return doc
-
 
 def _serialize_list(docs: list) -> list:
     return [_serialize(d) for d in docs]

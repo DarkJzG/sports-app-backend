@@ -1,5 +1,8 @@
 # flask_api/rutas/ruta_pedido.py
-from flask import Blueprint, request
+import json
+import cloudinary.uploader
+
+from flask import Blueprint, request, jsonify, current_app
 from flask_api.controlador.control_pedido import (
     mis_pedidos, listar_pedidos_admin, cambiar_estado_pedido,
     confirmar_pedido_transferencia, registrar_pago
@@ -47,11 +50,93 @@ def cambiar_estado(pedidoId):
 
 @pedido_bp.route("/confirmar-transferencia/<userId>", methods=["POST"])
 def confirmar_transferencia(userId):
-    data = request.get_json() or {}
-    return confirmar_pedido_transferencia(userId, data)
+    try:
+        # Verificar si se envió un archivo
+        if 'imagen' not in request.files:
+            return jsonify({"ok": False, "msg": "No se ha proporcionado ninguna imagen"}), 400
+            
+        file = request.files['imagen']
+        
+        # Verificar que el archivo tenga un nombre
+        if file.filename == '':
+            return jsonify({"ok": False, "msg": "No se ha seleccionado ningún archivo"}), 400
+
+        # Verificar que el archivo sea una imagen
+        if not file.content_type.startswith('image/'):
+            return jsonify({"ok": False, "msg": "El archivo debe ser una imagen"}), 400
+
+        # Obtener los datos del formulario
+        if 'data' not in request.form:
+            return jsonify({"ok": False, "msg": "Datos del pedido no proporcionados"}), 400
+
+        try:
+            data = json.loads(request.form['data'])
+        except json.JSONDecodeError:
+            return jsonify({"ok": False, "msg": "Formato de datos inválido"}), 400
+
+        # Subir la imagen a Cloudinary
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file,
+                folder="transferencias",
+                resource_type="image"
+            )
+            # Agregar la URL de la imagen a los datos del pedido
+            data['imagenTransferencia'] = upload_result['secure_url']
+        except Exception as e:
+            current_app.logger.error(f"Error al subir la imagen: {str(e)}")
+            return jsonify({"ok": False, "msg": "Error al procesar la imagen"}), 500
+
+        # Procesar el pedido con los datos y la URL de la imagen
+        return confirmar_pedido_transferencia(userId, data)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error en confirmar transferencia: {str(e)}")
+        return jsonify({"ok": False, "msg": "Error al procesar la solicitud"}), 500
 
 # POST /pedido/<pedidoId>/pago
 @pedido_bp.route("/<pedidoId>/pago", methods=["POST"])
 def registrar_pago_route(pedidoId):
-    data = request.get_json() or {}
-    return registrar_pago(pedidoId, data)
+    try:
+        # Verificar si se envió un archivo
+        if 'imagen' not in request.files:
+            return jsonify({"ok": False, "msg": "No se ha proporcionado ninguna imagen"}), 400
+            
+        file = request.files['imagen']
+        
+        # Verificar que el archivo tenga un nombre
+        if file.filename == '':
+            return jsonify({"ok": False, "msg": "No se ha seleccionado ningún archivo"}), 400
+
+        # Verificar que el archivo sea una imagen
+        if not file.content_type.startswith('image/'):
+            return jsonify({"ok": False, "msg": "El archivo debe ser una imagen"}), 400
+
+        # Obtener los datos del formulario
+        if 'data' not in request.form:
+            return jsonify({"ok": False, "msg": "Datos del pago no proporcionados"}), 400
+
+        try:
+            data = json.loads(request.form['data'])
+        except json.JSONDecodeError:
+            return jsonify({"ok": False, "msg": "Formato de datos inválido"}), 400
+
+        # Subir la imagen a Cloudinary
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file,
+                folder="comprobantes_pago",
+                resource_type="image"
+            )
+            # Agregar la URL de la imagen a los datos del pago
+            data['imagenComprobante'] = upload_result['secure_url']
+        except Exception as e:
+            current_app.logger.error(f"Error al subir la imagen: {str(e)}")
+            return jsonify({"ok": False, "msg": "Error al procesar la imagen"}), 500
+
+        # Procesar el pago con los datos y la URL de la imagen
+        return registrar_pago(pedidoId, data)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error en registrar pago: {str(e)}")
+        return jsonify({"ok": False, "msg": "Error al procesar la solicitud"}), 500
