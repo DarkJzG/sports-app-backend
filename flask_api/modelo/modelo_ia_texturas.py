@@ -16,5 +16,4 @@ def listar_texturas(user_id):
     for tex in texturas:
         tex["_id"] = str(tex["_id"])
         tex["user_id"] = str(tex["user_id"])
-
-    return texturas
+        tex["color_promedio"] = tex.get("color_promedio", "#FFFFFF")

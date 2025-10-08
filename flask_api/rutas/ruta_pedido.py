@@ -7,6 +7,8 @@ from flask_api.controlador.control_pedido import (
     mis_pedidos, listar_pedidos_admin, cambiar_estado_pedido,
     confirmar_pedido_transferencia, registrar_pago
 )
+from flask_api.modelo.modelo_ficha_tecnica import get_fichas_collection
+from bson import ObjectId
 
 pedido_bp = Blueprint("pedido", __name__, url_prefix="/pedido")
 
@@ -46,11 +48,13 @@ def cambiar_estado(pedidoId):
     data = request.get_json() or {}
     nuevo_estado = data.get("estado")
     nota_admin = data.get("nota")
-    return cambiar_estado_pedido(pedidoId, nuevo_estado, nota_admin)
+    fechaEntrega = data.get("fechaEntrega")
+    return cambiar_estado_pedido(pedidoId, nuevo_estado, nota_admin, fechaEntrega)
 
 @pedido_bp.route("/confirmar-transferencia/<userId>", methods=["POST"])
 def confirmar_transferencia(userId):
     try:
+
         # Verificar si se envió un archivo
         if 'imagen' not in request.files:
             return jsonify({"ok": False, "msg": "No se ha proporcionado ninguna imagen"}), 400
@@ -74,6 +78,7 @@ def confirmar_transferencia(userId):
         except json.JSONDecodeError:
             return jsonify({"ok": False, "msg": "Formato de datos inválido"}), 400
 
+
         # Subir la imagen a Cloudinary
         try:
             upload_result = cloudinary.uploader.upload(
@@ -87,12 +92,21 @@ def confirmar_transferencia(userId):
             current_app.logger.error(f"Error al subir la imagen: {str(e)}")
             return jsonify({"ok": False, "msg": "Error al procesar la imagen"}), 500
 
-        # Procesar el pedido con los datos y la URL de la imagen
+        for item in data.get("items", []):
+            if item.get("ficha_id") and item.get("talla"):
+                get_fichas_collection().update_one(
+                    {"_id": ObjectId(item["ficha_id"])},
+                    {"$set": {"talla": item["talla"]}}
+                )
+
+        # 🔹 Procesar el pedido en la capa de controlador
         return confirmar_pedido_transferencia(userId, data)
         
     except Exception as e:
         current_app.logger.error(f"Error en confirmar transferencia: {str(e)}")
         return jsonify({"ok": False, "msg": "Error al procesar la solicitud"}), 500
+        
+
 
 # POST /pedido/<pedidoId>/pago
 @pedido_bp.route("/<pedidoId>/pago", methods=["POST"])

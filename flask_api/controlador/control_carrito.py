@@ -22,6 +22,7 @@ def agregar_al_carrito(data):
         item = {
             "userId": data.get("userId"),
             "productoId": ObjectId(data["productoId"]) if data.get("productoId") else None,
+            "tipo": data.get("tipo", "producto"),
             "nombre": data.get("nombre"),
             "categoria_nombre": data.get("categoria_nombre"),
             "tela_nombre": data.get("tela_nombre"),
@@ -31,6 +32,7 @@ def agregar_al_carrito(data):
             "precio_unitario": precio_unitario,
             "precio": precio,
             "imagen_url": data.get("imagen_url"),
+            "ficha_id": data.get("ficha_id"),
             "estado": data.get("estado", "pendiente"),
         }
 

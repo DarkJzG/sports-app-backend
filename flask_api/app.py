@@ -41,11 +41,16 @@ from flask_api.rutas.ruta_ia_texturas import ruta_ia_texturas
 from flask_api.rutas.ruta_camiseta_ia import ruta_camiseta_ia
 from flask_api.rutas.ruta_ia_camiseta import ruta_ia_camiseta
 
+from flask_api.rutas.ruta_ficha_tecnica import ruta_ficha_tecnica
+from flask_api.rutas.ruta_3d_prenda import ruta_3d_prenda
+from flask_api.rutas.ruta_3d_logos import ruta_3d_logos
+
 
 
 
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 
 load_dotenv()
@@ -107,6 +112,9 @@ app.register_blueprint(prendas_ia_bp)
 app.register_blueprint(ruta_ia_texturas)
 app.register_blueprint(ruta_camiseta_ia)
 app.register_blueprint(ruta_ia_camiseta)
+app.register_blueprint(ruta_ficha_tecnica)
+app.register_blueprint(ruta_3d_prenda)
+app.register_blueprint(ruta_3d_logos)
 
 @app.route("/")
 def home():

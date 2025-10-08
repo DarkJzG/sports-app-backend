@@ -10,9 +10,17 @@ class ModeloCarrito:
 
     @staticmethod
     def obtener_carrito_usuario(user_id):
-        return list(current_app.mongo.db.carrito.find(
+        items = list(current_app.mongo.db.carrito.find(
             {"userId": user_id, "estado": "pendiente"}
         ))
+        # Convertir ObjectId a string para _id, productoId y ficha_id
+        for item in items:
+            item['_id'] = str(item['_id'])
+            if 'productoId' in item and item['productoId'] is not None:
+                item['productoId'] = str(item['productoId'])
+            if 'ficha_id' in item and item['ficha_id'] is not None:
+                item['ficha_id'] = str(item['ficha_id'])
+        return items
 
     @staticmethod
     def obtener_item_por_id(item_id):

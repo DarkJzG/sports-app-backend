@@ -119,6 +119,10 @@ def _validar_payload_confirmacion(data: dict):
             
         if int(it["cantidad"]) <= 0:
             return f"Item {i} con cantidad inválida"
+        
+        if it.get("tipo") == "ia_prenda":
+                if "ficha_id" not in it or not it["ficha_id"]:
+                    return f"Item {i} (ia_prenda) requiere 'ficha_id'"
     
     # Validar dirección de envío
     if not isinstance(data["direccionEnvio"], dict):
@@ -211,9 +215,9 @@ def listar_pedidos_admin(estado: str = None, q_user: str = None, page: int = 1, 
         "pedidos": pedidos
     }), 200
 
-def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = None):
+def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = None, fechaEntrega: str = None):
     try:
-        ok = update_pedido_status(pedido_id, nuevo_estado, nota_admin)
+        ok = update_pedido_status(pedido_id, nuevo_estado, nota_admin, fechaEntrega)
     except ValueError as e:
         return jsonify({"ok": False, "msg": str(e)}), 400
 
@@ -221,3 +225,4 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
         return jsonify({"ok": False, "msg": "Pedido no encontrado"}), 404
 
     return jsonify({"ok": True, "msg": "Estado actualizado"}), 200
+

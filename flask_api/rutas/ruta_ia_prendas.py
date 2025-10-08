@@ -3,16 +3,20 @@ from flask import Blueprint, current_app, request, jsonify
 from bson.errors import InvalidId
 from bson import ObjectId
 
+
 from flask_api.controlador.control_ia_prendas import (
     generar_imagen,
-    generar_pdf,
 )
-from flask_api.modelo.modelo_ia_prendas import listar_prendas, buscar_prenda, eliminar_prenda
+from flask_api.modelo.modelo_ia_prendas import (
+    listar_prendas, 
+    buscar_prenda, 
+    eliminar_prenda, 
+)
 
 ruta_ia_prendas = Blueprint("ruta_ia_prendas", __name__)
 
 # ---------------------------------------------------------
-# Generar imagen + ficha técnica + costo
+# Generar imagen + costo
 # ---------------------------------------------------------
 @ruta_ia_prendas.route("/api/ia/generar_prendas", methods=["POST"])
 def generar_prenda():
@@ -36,40 +40,6 @@ def generar_prenda():
     result = generar_imagen(categoria_id, categoria_prd, atributos, user_id)
     return jsonify(result), (200 if "error" not in result else 500)
 
-# ---------------------------------------------------------
-# Guardar selección de una imagen generada
-# ---------------------------------------------------------
-@ruta_ia_prendas.route("/api/ia/prendas/guardar", methods=["POST"])
-def guardar_prenda_api():
-    data = request.get_json()
-    user_id = data.get("userId")
-    prompt = data.get("prompt")
-    image_base64 = data.get("image")
-    atributos = data.get("atributos", {})
-
-    if not user_id or not image_base64:
-        return jsonify({"error": "Faltan parámetros"}), 400
-
-    try:
-        ObjectId(user_id)
-    except (InvalidId, TypeError):
-        return jsonify({"error": "userId inválido"}), 400
-
-    result = guardar_prenda_seleccionada(user_id, prompt, image_base64, atributos)
-    return jsonify(result), (200 if result.get("ok") else 500)
-
-# ---------------------------------------------------------
-# Generar PDF ficha técnica
-# ---------------------------------------------------------
-@ruta_ia_prendas.route("/api/ia/ficha_tecnica", methods=["POST"])
-def ficha_pdf():
-    data = request.get_json()
-    ficha = data.get("ficha", {})
-    imagen_b64 = data.get("imagen")
-    image_url = data.get("imageUrl")
-
-    pdf_b64 = generar_pdf(ficha, imagen_b64, image_url)
-    return jsonify({"ok": True, "pdf_base64": pdf_b64}), 200
 
 # ---------------------------------------------------------
 # Listar prendas de un usuario
@@ -123,3 +93,4 @@ def check_stable():
     return jsonify({
         "stable_url": current_app.config["STABLE_URL"]
     })
+

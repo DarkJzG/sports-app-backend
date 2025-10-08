@@ -11,13 +11,13 @@ ruta_ia_texturas = Blueprint("ruta_ia_texturas", __name__)
 def generar_textura_route():
     data = request.get_json()
     prompt_textura = data.get("prompt_textura")
-    side = data.get("side", "delantera")
+    zona = data.get("zona", "torso")  # ahora zona, no side
     user_id = data.get("userId", "anon")
 
     if not prompt_textura:
         return jsonify({"error": "Falta prompt_textura"}), 400
 
-    result = generar_textura(prompt_textura, user_id, side)
+    result = generar_textura(prompt_textura, user_id, zona)
 
     if "error" in result:
         return jsonify(result), 500

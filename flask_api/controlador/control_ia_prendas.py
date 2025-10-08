@@ -1,134 +1,29 @@
 # flask_api/controlador/control_ia_prendas.py
 import base64, io, requests
 from bson import ObjectId
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from PIL import Image as PILImage
 import cloudinary.uploader
 from flask import current_app
 
+from flask_api.funciones.normalizar import _norm_cat
+
+from flask_api.controlador.control_ficha_tecnica import (
+
+    construir_ficha_tecnica_detallada)
 from flask_api.modelo.modelo_ia_prendas import guardar_prenda
+from flask_api.modelo.modelo_ficha_tecnica import guardar_ficha
+
+
+from flask_api.componente.traducciones import (
+    MAPEO_ATRIBUTOS_ES,
+    TRADUCCION_BASICA_INVERSA)
 
 NEGATIVE_PROMPT = (
-    "body, human, man, woman, mannequin, arms, hands, fingers, faces, model, "
-    "limbs, text, logos"
+    "person, people, human, man, woman, mannequin, dummy, model, arms, hands, "
+    "fingers, faces, limbs, hanger, background scene, shoes, accessories, "
+    "folded clothes, cropped, wrinkles, blur, shadows, watermark, text, logos"
 )
 
-MAPEO_ATRIBUTOS_ES = {
-    #Tela
-    "cotton" : "algodón",
-    "polyester" : "poliéster",
-    "cotton/polyester blend" : "algodón/poliéster",
 
-    # Estilos
-    "sports style": "deportiva",
-    "casual style": "casual",
-    "urban style": "urbana",
-    "retro style": "retro",
-
-    # Colores
-    "black": "negro",
-    "white": "blanco",
-    "red": "rojo",
-    "blue": "azul",
-    "green": "verde",
-    "yellow": "amarillo",
-    "gray": "gris",
-    "orange": "naranja",
-    "purple": "morado",
-    "sky blue": "celeste",
-
-    # Cuello
-    "round neck": "cuello redondo",
-    "V-neck": "cuello en V",
-    "polo collar": "cuello polo",
-
-    # Mangas
-    "short sleeves": "manga corta",
-    "long sleeves": "manga larga",
-
-    # Diseños
-    "striped": "rayas",
-    "lined": "líneas",
-    "geometric": "geométrico",
-    "abstract": "abstracto",
-    "paint splatter": "manchas de pintura",
-    "gradient": "degradado",
-    "other": "otro",
-
-    # Estilos avanzados
-    "brush strokes": "brochazos",
-    "splatter": "salpicaduras",
-    "minimalist": "minimalista",
-    "futuristic": "futurista",
-    "camouflage": "camuflaje",
-
-    # Acabados
-    "matte finish": "mate",
-    "glossy finish": "brillante",
-    "textured finish": "texturizado",
-
-    # Género
-    "male": "hombre",
-    "female": "mujer",
-    "unisex": "unisex",
-}
-
-
-# --------------------------------------
-# Diccionario básico EN → ES (para mostrar al cliente)
-# --------------------------------------
-TRADUCCION_BASICA_INVERSA = {
-    # prendas
-    "T-shirt": "camiseta",
-    "sports T-shirt": "camiseta deportiva",
-    "jogger pants": "pantalón jogger",
-    "pants": "pantalón",
-    "shorts": "pantaloneta",
-    "hoodie": "chompa",
-    "hoodie jacket": "chompa con cierre",
-    "jacket": "chaqueta",
-    "outfit": "conjunto",
-    "set": "conjunto",
-    "two-piece": "dos piezas",
-    "sportswear set": "conjunto deportivo",
-
-    # estilos
-    "sports style": "deportiva",
-    "urban style": "urbana",
-    "casual style": "casual",
-    "retro style": "retro",
-
-    # detalles generales
-    "round neck": "cuello redondo",
-    "V-neck": "cuello en V",
-    "polo collar": "cuello polo",
-    "short sleeves": "manga corta",
-    "long sleeves": "manga larga",
-    "sleeveless": "sin mangas",
-    "gradient": "degradado",
-    "paint splatter": "manchas de pintura",
-    "geometric": "geométrico",
-    "abstract": "abstracto",
-    "ribbed details on collar and sleeves": "ribetes en cuello y mangas",
-    "bicolor sleeves and collar": "bicolor en mangas/cuello",
-    "visible seams": "costuras visibles",
-
-    # acabado/estudio
-    "matte finish": "acabado mate",
-    "glossy finish": "acabado brillante",
-    "textured finish": "acabado texturizado",
-    "professional studio lighting": "iluminación profesional de estudio",
-    "studio lighting": "iluminación de estudio",
-    "product catalog photo": "foto de catálogo de producto",
-    "plain white background": "fondo blanco liso",
-    "isolated background": "fondo aislado",
-    "sharp focus": "enfoque nítido",
-    "no wrinkles": "sin arrugas",
-}
 
 
 PROMPTS_CATEGORIA = {
@@ -141,23 +36,42 @@ PROMPTS_CATEGORIA = {
         "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the pants",
     },
     "chompa": {
-        "base": "Centered front view, hoodie jacket with zipper and drawstrings, athletic style",
-        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the hoodie",
+        "base": (
+            "Centered front view, full hoodie jacket, symmetrical, "
+            "athletic fit, floating isolated, product shot"
+        ),
+        "tail": (
+            "flat lay photo, professional studio lighting, product catalog image, "
+            "plain white background, no mannequin, no hanger, no models, "
+            "sharp focus, sportswear fabric texture, no text, no logos, "
+            "only the hoodie jacket"
+        ),
     },
     "conjunto_interno": {
-        # camiseta + pantaloneta
-        "base": "Centered front view, two-piece sportswear set: athletic sports T-shirt and shorts, displayed side by side",
-        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the outfit",
+        "base": (
+            "Centered front view, two-piece sportswear set, symmetrical, isolated"
+            "and shorts, displayed side by side, symmetrical, isolated"
+        ),
+        "tail": (
+            "flat lay photo, product catalog image, plain white background, "
+            "floating, no mannequin, no hanger, no models, "
+            "sharp focus, sportswear fabric texture, no text, no logos, "
+            "only the T-shirt and shorts"
+        ),
     },
     "conjunto_externo": {
-        # chompa + pantalón
-        "base": "Centered front view, two-piece sportswear set: hoodie jacket and jogger pants, displayed side by side",
-        "tail": "professional studio lighting, product catalog photo, plain white background, isolated background, no wrinkles, sharp focus, no logos, no text, no limbs, just the outfit",
+        "base": (
+            "Centered front view, two-piece sportswear set: hoodie jacket and jogger pants, "
+            "displayed side by side, symmetrical, isolated"
+        ),
+        "tail": (
+            "flat lay photo, product catalog image, plain white background, "
+            "floating, no mannequin, no hanger, no models, "
+            "sharp focus, sportswear fabric texture, no text, no logos, "
+            "only the hoodie jacket and jogger pants"
+        ),
     },
 }
-
-def _norm_cat(categoria_prd: str) -> str:
-    return (categoria_prd or "").strip().lower()
 
 
 def traducir_atributos_es(atributos):
@@ -271,7 +185,9 @@ def generar_prompt(categoria_prd, atributos):
         color1 = atributos.get("color1", "")
         color2 = atributos.get("color2", "")
         diseno = atributos.get("diseno", "")
-        cuello = atributos.get("cuello", "")
+        cuello_capucha = atributos.get("cuelloCapucha", "")
+        cierre = atributos.get("cierre", "")
+        bolsillos = atributos.get("bolsillos", [])
         manga = atributos.get("manga", "")
         tela = atributos.get("tela", "")
         genero = atributos.get("genero", "")
@@ -309,8 +225,12 @@ def generar_prompt(categoria_prd, atributos):
             partes_en.append(f"with {color2} details")
 
         # Campos específicos que aportan a la forma
-        if cuello:
-            partes_en.append(cuello)
+        if cuello_capucha:
+            partes_en.append(cuello_capucha)
+        if cierre:
+            partes_en.append(cierre)
+        if bolsillos:
+            partes_en.append(bolsillos)
         if manga:
             partes_en.append(manga)
         if genero:
@@ -321,6 +241,48 @@ def generar_prompt(categoria_prd, atributos):
             partes_en.append(", ".join(detalles))
         if acabado:
             partes_en.append(acabado)
+        if cat == "conjunto_interno":
+            parteSuperior = atributos.get("parteSuperior", "")
+            parteInferior = atributos.get("parteInferior", "")
+            cintura = atributos.get("cintura", "")
+
+            if parteSuperior:
+                partes_en.append(f"top garment: {parteSuperior}")
+            if parteInferior:
+                partes_en.append(f"bottom garment: {parteInferior}")
+            if cintura:
+                partes_en.append(cintura)
+
+        if cat == "conjunto_externo":
+            capucha = atributos.get("capucha", "")
+            cierre = atributos.get("cierre", "")
+            bolsillos_chompa = atributos.get("bolsillosChompa", "")
+            detalles_chompa = atributos.get("detallesChompa", [])
+
+            ajuste_pantalon = atributos.get("ajustePantalon", "")
+            cintura_pantalon = atributos.get("cinturaPantalon", "")
+            bolsillos_pantalon = atributos.get("bolsillosPantalon", "")
+            detalles_pantalon = atributos.get("detallesPantalon", [])
+
+            if capucha:
+                partes_en.append(capucha)
+            if cierre:
+                partes_en.append(cierre)
+            if bolsillos_chompa:
+                partes_en.append(bolsillos_chompa)
+            if detalles_chompa:
+                partes_en.append(", ".join(detalles_chompa))
+
+            if ajuste_pantalon:
+                partes_en.append(ajuste_pantalon)
+            if cintura_pantalon:
+                partes_en.append(cintura_pantalon)
+            if bolsillos_pantalon:
+                partes_en.append(bolsillos_pantalon)
+            if detalles_pantalon:
+                partes_en.append(", ".join(detalles_pantalon))
+
+
 
         # Cola de calidad fotográfica y limpieza
         partes_en.append(tail)
@@ -358,28 +320,64 @@ def generar_descripcion_es(categoria_prd, atributos_es):
     if acabado:
         partes.append(f"con acabado {acabado}")
 
+    cuello_capucha = atributos_es.get("cuelloCapucha")
+    if cuello_capucha:
+        partes.append(f"con {cuello_capucha}")
+
+    cierre = atributos_es.get("cierre")
+    if cierre:
+        partes.append(cierre)
+
+    bolsillos = atributos_es.get("bolsillos")
+    if bolsillos:
+        partes.append(f"con {bolsillos}")
+
+    if categoria_prd == "conjunto_interno":
+        parteSuperior = atributos_es.get("parteSuperior")
+        parteInferior = atributos_es.get("parteInferior")
+        cintura = atributos_es.get("cintura")
+
+        if parteSuperior:
+            partes.append(f"prenda superior: {parteSuperior}")
+        if parteInferior:
+            partes.append(f"prenda inferior: {parteInferior}")
+        if cintura:
+            partes.append(f"con {cintura}")
+
+    if categoria_prd == "conjunto_externo":
+        capucha = atributos_es.get("capucha")
+        cierre = atributos_es.get("cierre")
+        bolsillos_chompa = atributos_es.get("bolsillosChompa")
+        detalles_chompa = atributos_es.get("detallesChompa", [])
+
+        ajuste_pantalon = atributos_es.get("ajustePantalon")
+        cintura_pantalon = atributos_es.get("cinturaPantalon")
+        bolsillos_pantalon = atributos_es.get("bolsillosPantalon")
+        detalles_pantalon = atributos_es.get("detallesPantalon", [])
+
+        if capucha:
+            partes.append(f"chompa {capucha}")
+        if cierre:
+            partes.append(f"{cierre}")
+        if bolsillos_chompa:
+            partes.append(f"con {bolsillos_chompa}")
+        if detalles_chompa:
+            partes.append(f"con {', '.join(detalles_chompa)}")
+
+        if ajuste_pantalon:
+            partes.append(f"pantalón {ajuste_pantalon}")
+        if cintura_pantalon:
+            partes.append(f"con {cintura_pantalon}")
+        if bolsillos_pantalon:
+            partes.append(f"con {bolsillos_pantalon}")
+        if detalles_pantalon:
+            partes.append(f"con {', '.join(detalles_pantalon)}")
+
+
     return " ".join(partes)
 
 
-# --------------------------------------
-# Ficha técnica
-# --------------------------------------
-def generar_ficha_tecnica(categoria_prd, atributos):
-    return {
-        "Tipo": categoria_prd,
-        "Estilo": atributos.get("estilo", ""),
-        "Color principal": atributos.get("color1", ""),
-        "Color secundario": atributos.get("color2", ""),
-        "Diseño": atributos.get("diseno", ""),
-        "Estilo avanzado": atributos.get("estiloAvanzado", ""),
-        "Ubicación diseño": atributos.get("ubicacion", ""),
-        "Detalles": ", ".join(atributos.get("detalles", [])),
-        "Acabado": atributos.get("acabado", ""),
-        "Cuello": atributos.get("cuello", ""),
-        "Manga": atributos.get("manga", ""),
-        "Tela": atributos.get("tela", ""),
-        "Género": atributos.get("genero", ""),
-    }
+
 
 
 # --------------------------------------
@@ -421,8 +419,30 @@ def generar_imagen(categoria_id, categoria_prd, atributos, user_id):
         upload_result = cloudinary.uploader.upload(image_file, folder="prendasIA")
         image_url = upload_result.get("secure_url")
 
-        ficha_tecnica = generar_ficha_tecnica(categoria_prd, atributos_es)
+        ficha_tecnica_detallada = construir_ficha_tecnica_detallada(
+            categoria_prd, 
+            atributos_es, 
+            {"delantera": image_url}
+        )
+
         precios = calcular_precio_final(categoria_id, atributos_es)
+
+
+        ficha_doc = {
+            "user_id": ObjectId(user_id),
+            "prenda_id": None,  # lo actualizamos luego
+            "categoria": categoria_prd,
+            "modelo": ficha_tecnica_detallada.get("modelo"),
+            "descripcion": ficha_tecnica_detallada.get("descripcion"),
+            "caracteristicas": ficha_tecnica_detallada.get("caracteristicas", {}),
+            "imagenes": ficha_tecnica_detallada.get("imagenes", {}),
+            "piezas": ficha_tecnica_detallada.get("piezas", []),
+            "insumos": ficha_tecnica_detallada.get("insumos", []),
+            "logo": ficha_tecnica_detallada.get("logo", {}),
+            "especificaciones": ficha_tecnica_detallada.get("especificaciones", []),
+        }
+
+        ficha_id = guardar_ficha(ficha_doc)
 
         doc = {
             "user_id": ObjectId(user_id),
@@ -432,7 +452,8 @@ def generar_imagen(categoria_id, categoria_prd, atributos, user_id):
             "descripcion_es": descripcion_es,
             "prompt_en": prompt_en,
             "imageUrl": image_url,
-            "ficha_tecnica": ficha_tecnica,
+            "ficha_tecnica_detallada": ficha_tecnica_detallada,  # opcional
+            "ficha_id": ficha_id,
             "costo": precios["costo"],
             "precio_venta": precios["precio"],
             "precio_mayor": precios["precio_mayor"],
@@ -440,11 +461,15 @@ def generar_imagen(categoria_id, categoria_prd, atributos, user_id):
         }
         inserted_id = guardar_prenda(doc)
 
+        current_app.mongo.db.fichas_tecnicas.update_one(
+            {"_id": ObjectId(ficha_id)},
+            {"$set": {"prenda_id": ObjectId(inserted_id)}}
+        )
         return {
             "id": inserted_id,
+            "ficha_id": ficha_id,
             "descripcion": descripcion_es,
             "imageUrl": image_url,
-            "ficha_tecnica": ficha_tecnica,
             "costo": precios["costo"],
             "precio_venta": precios["precio"],
             "precio_mayor": precios["precio_mayor"],
@@ -453,47 +478,3 @@ def generar_imagen(categoria_id, categoria_prd, atributos, user_id):
     except Exception as e:
         return {"error": f"Error al generar imagen en Stable Diffusion: {str(e)}"}
 
-# --------------------------------------
-# PDF ficha técnica
-# --------------------------------------
-def generar_pdf(ficha, imagen_b64=None, image_url=None):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    elements = []
-
-    styles = getSampleStyleSheet()
-    title_style = styles["Heading1"]
-    elements.append(Paragraph("FICHA TÉCNICA DE PRENDA", title_style))
-    elements.append(Spacer(1, 0.5*cm))
-
-    tabla_data = [["Campo", "Valor"]] + [[k, v if v else "-"] for k, v in ficha.items()]
-    tabla = Table(tabla_data, colWidths=[6*cm, 10*cm])
-    tabla.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-    ]))
-    elements.append(tabla)
-    elements.append(Spacer(1, 1*cm))
-
-    # Imagen
-    img_io = None
-    if imagen_b64:
-        img_data = base64.b64decode(imagen_b64)
-        img_io = io.BytesIO(img_data)
-    elif image_url:
-        resp = requests.get(image_url, stream=True)
-        img_io = io.BytesIO(resp.content)
-
-    if img_io:
-        pil_img = PILImage.open(img_io)
-        temp_io = io.BytesIO()
-        pil_img.save(temp_io, format="JPEG")
-        temp_io.seek(0)
-        elements.append(Image(temp_io, width=10*cm, height=10*cm, kind="proportional"))
-
-    doc.build(elements)
-    buffer.seek(0)
-    pdf_b64 = base64.b64encode(buffer.read()).decode("utf-8")
-    return pdf_b64

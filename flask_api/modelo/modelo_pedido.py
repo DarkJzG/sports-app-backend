@@ -50,12 +50,15 @@ def build_pedido_doc(user_id: str, data: dict) -> dict:
         "items": [
             {
                 "productId": ObjectId(item["productId"]),
+                "tipo": item.get("tipo", "producto"),
                 "nombre": item["nombre"],
                 "cantidad": int(item["cantidad"]),
                 "precioUnitario": float(item["precioUnitario"]),
                 "talla": item.get("talla"),
                 "color": item.get("color"),
-                "imagen": item.get("imagen")
+                "imagen": item.get("imagen") or item.get("imagen_url"),
+                "ficha_id": str(item.get("ficha_id")) if item.get("ficha_id") else None
+
             } for item in data["items"]
         ],
         "direccionEnvio": {
@@ -161,21 +164,38 @@ def find_all_pedidos(filt: dict, page: int = 1, limit: int = 20):
     return _serialize_list(items), total
 
 
-def update_pedido_status(pedido_id: str, nuevo_estado: str, nota_admin: str = None):
+def update_pedido_status(pedido_id: str, nuevo_estado: str, nota_admin: str = None, fechaEntrega=None):
     if nuevo_estado not in ESTADOS_PEDIDO:
         raise ValueError("Estado inválido")
 
     col = get_pedidos_collection()
     upd = {
-        "$set": {"estado": nuevo_estado, "updatedAt": _now_utc()},
-        "$push": {"timeline": {"evento": "cambio_estado", "estado": nuevo_estado, "nota": nota_admin, "ts": _now_utc()}}
+        "$set": {
+            "estado": nuevo_estado,
+            "updatedAt": _now_utc()
+        },
+        "$push": {
+            "timeline": {
+                "evento": "cambio_estado",
+                "estado": nuevo_estado,
+                "nota": nota_admin,
+                "ts": _now_utc()
+            }
+        }
     }
+
+    if fechaEntrega:
+        upd["$set"]["fechaEntrega"] = fechaEntrega
+
+
+
     res = col.update_one({"_id": ObjectId(pedido_id)}, upd)
     return res.modified_count == 1
 
+
 def _to_iso(dt):
     try:
-        return dt.isoformat()
+        return dt.isoformat().replace("+00:00", "Z")
     except Exception:
         return dt
 
@@ -186,6 +206,14 @@ def _serialize(doc: dict) -> dict:
         
     doc["_id"] = str(doc["_id"])
     doc["userId"] = str(doc["userId"])
+
+        # Normalizar fechas principales
+    if "createdAt" in doc:
+        doc["createdAt"] = _to_iso(doc["createdAt"])
+    if "updatedAt" in doc:
+        doc["updatedAt"] = _to_iso(doc["updatedAt"])
+    if "fechaEntrega" in doc:
+        doc["fechaEntrega"] = _to_iso(doc["fechaEntrega"])
     
     # Serializar pagos si existen
     if "pagos" in doc:
@@ -209,6 +237,8 @@ def _serialize(doc: dict) -> dict:
             item["productId"] = str(item["productId"])
             if "precioUnitario" in item:
                 item["precioUnitario"] = float(item["precioUnitario"])
+            if "ficha_id" in item and item["ficha_id"]:
+                item["ficha_id"] = str(item["ficha_id"])
     
     return doc
 
