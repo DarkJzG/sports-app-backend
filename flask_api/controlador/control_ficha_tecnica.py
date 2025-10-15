@@ -553,26 +553,32 @@ def generar_ficha_tecnica_3d(prenda_data):
 
     titulo = f"FICHA TÉCNICA - {prenda_data.get('categoria', '').upper()}"
     subtitulo = f"Modelo: {prenda_data.get('modelo', '')}   |   Fecha: {datetime.now().strftime('%d/%m/%Y')}"
+
+    # =======================
+    # 🧷 PORTADA PRINCIPAL
+    # =======================
     elementos.append(Paragraph(titulo, styles["Title"]))
     elementos.append(Spacer(1, 6))
     elementos.append(Paragraph(subtitulo, styles["Normal"]))
     elementos.append(Spacer(1, 12))
 
-    # =====================================================
-    # 🖼️  Imagen render_final
-    # =====================================================
-    render_url = prenda_data.get("render_final")
-    if render_url:
+    # 📸 Imagen principal (vista de frente)
+    renders = prenda_data.get("renders", {})
+    render_frente = renders.get("render_frente")
+
+
+    if render_frente:
         try:
-            response = requests.get(render_url)
-            img = PILImage.open(io.BytesIO(response.content))
-            img_path = io.BytesIO()
-            img.save(img_path, format="PNG")
-            img_path.seek(0)
-            elementos.append(Image(img_path, width=14*cm, height=14*cm))
+            response = requests.get(render_frente, stream=True)
+            img_io = io.BytesIO(response.content)
+            pil_img = PILImage.open(img_io)
+            temp_io = io.BytesIO()
+            pil_img.save(temp_io, format="PNG")
+            temp_io.seek(0)
+            elementos.append(Image(temp_io, width=13*cm, height=13*cm))
             elementos.append(Spacer(1, 12))
         except Exception as e:
-            elementos.append(Paragraph(f"No se pudo cargar imagen: {e}", styles["Italic"]))
+            elementos.append(Paragraph(f"No se pudo cargar la vista frontal: {e}", styles["Italic"]))
 
     # =====================================================
     # 🎨 Tabla de Colores y Texturas
@@ -580,11 +586,10 @@ def generar_ficha_tecnica_3d(prenda_data):
     colors_data = prenda_data.get("colors", {})
     textures_data = prenda_data.get("textures", {})
 
-
     tabla_colores = [["Zona", "Color", "Textura"]]
     for zona, color in colors_data.items():
         textura = textures_data.get(zona) or "-"
-        tabla_colores.append([zona, color, linkify(textura)])
+        tabla_colores.append([zona.capitalize(), color, linkify(textura)])
 
     tabla_colores_estilo = Table(tabla_colores, colWidths=[4*cm, 4*cm, 7*cm])
     tabla_colores_estilo.setStyle(TableStyle([
@@ -601,11 +606,9 @@ def generar_ficha_tecnica_3d(prenda_data):
     # =====================================================
     # 🧾 Logos y Textos
     # =====================================================
-
     decals = prenda_data.get("decals", [])
     textDecals = prenda_data.get("textDecals", [])
 
-    # === Tabla de LOGOS ===
     if decals:
         elementos.append(Paragraph("Logos", styles["Heading2"]))
         for idx, d in enumerate(decals, start=1):
@@ -622,36 +625,89 @@ def generar_ficha_tecnica_3d(prenda_data):
                 ('TEXTCOLOR', (0,0), (0,-1), colors.white),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('ALIGN', (1,0), (-1,-1), 'LEFT'),
-                ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ]))
             elementos.append(Paragraph(f"Logo {idx}", styles["Heading3"]))
             elementos.append(tabla_logo)
             elementos.append(Spacer(1, 8))
 
-        # === Tabla de TEXTOS ===
-        if textDecals:
-            elementos.append(Paragraph("Textos", styles["Heading2"]))
-            for idx, t in enumerate(textDecals, start=1):
-                data_texto = [
-                    ["Texto", t.get("text", "-")],
-                    ["Posición", str(t.get("position", "-"))],
-                    ["Escala", t.get("scale", "-")],
-                    ["Rotación", t.get("rotationZ", "-")],
-                ]
-                tabla_texto = Table(data_texto, colWidths=[3 * cm, 12 * cm])
-                tabla_texto.setStyle(TableStyle([
-                    ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-                    ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#004488")),
-                    ('TEXTCOLOR', (0,0), (0,-1), colors.white),
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('ALIGN', (1,0), (-1,-1), 'LEFT'),
-                    ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-                ]))
-                elementos.append(Paragraph(f"Texto {idx}", styles["Heading3"]))
-                elementos.append(tabla_texto)
-                elementos.append(Spacer(1, 8))
+    if textDecals:
+        elementos.append(Paragraph("Textos", styles["Heading2"]))
+        for idx, t in enumerate(textDecals, start=1):
+            data_texto = [
+                ["Texto", t.get("text", "-")],
+                ["Posición", str(t.get("position", "-"))],
+                ["Escala", t.get("scale", "-")],
+                ["Rotación", t.get("rotationZ", "-")],
+            ]
+            tabla_texto = Table(data_texto, colWidths=[3 * cm, 12 * cm])
+            tabla_texto.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#004488")),
+                ('TEXTCOLOR', (0,0), (0,-1), colors.white),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (1,0), (-1,-1), 'LEFT'),
+            ]))
+            elementos.append(Paragraph(f"Texto {idx}", styles["Heading3"]))
+            elementos.append(tabla_texto)
+            elementos.append(Spacer(1, 8))
 
+    # =====================================================
+    # 🧵 Vistas del diseño (acabados)
+    # =====================================================
+    if renders:
+        elementos.append(Paragraph("Vistas del diseño (acabados)", styles["Heading2"]))
+        fila = []
+        for key in ["render_frente", "render_espalda", "render_lado_izq", "render_lado_der"]:
+            url = renders.get(key)
+            if not url:
+                continue
+            try:
+                resp = requests.get(url, stream=True)
+                img_io = io.BytesIO(resp.content)
+                pil_img = PILImage.open(img_io)
+                temp_io = io.BytesIO()
+                pil_img.save(temp_io, format="PNG")
+                temp_io.seek(0)
+                fila.append(Image(temp_io, width=9*cm, height=9*cm, kind="proportional"))
+            except Exception as e:
+                elementos.append(Paragraph(f"Error cargando {key}: {e}", styles["Normal"]))
+        if fila:
+            elementos.append(Table([fila], colWidths=[9*cm]*len(fila), hAlign="CENTER"))
+            elementos.append(Spacer(1, 12))
 
+    # =====================================================
+    # 🧶 Plano de sublimación
+    # =====================================================
+
+    plano_sublimacion_url = prenda_data.get("plano_sublimacion_url")
+    if plano_sublimacion_url:
+        elementos.append(Paragraph("Plano base de color (sublimación)", styles["Heading2"]))
+        try:
+            resp = requests.get(plano_sublimacion_url, timeout=10)
+            if resp.status_code == 200:
+                img_io = io.BytesIO(resp.content)
+                pil_img = PILImage.open(img_io).convert("RGB")
+
+                # 🔧 Ajustar tamaño al ancho útil del PDF (A4 con márgenes)
+                max_width = 16 * cm
+                aspect_ratio = pil_img.width / pil_img.height
+                new_height = max_width / aspect_ratio
+                if new_height > 16 * cm:
+                    new_height = 16 * cm
+                    max_width = new_height * aspect_ratio
+
+                temp_io = io.BytesIO()
+                pil_img.save(temp_io, format="PNG")
+                temp_io.seek(0)
+
+                elementos.append(Image(temp_io, width=max_width, height=new_height))
+                elementos.append(Spacer(1, 0.5 * cm))
+            else:
+                elementos.append(Paragraph("⚠️ No se pudo cargar el plano (respuesta inválida).", styles["Normal"]))
+        except Exception as e:
+            elementos.append(Paragraph(f"⚠️ Error cargando plano: {str(e)}", styles["Normal"]))
+    else:
+        elementos.append(Paragraph("No se encontró la imagen de sublimación.", styles["Normal"]))
     # =====================================================
     # 📋 Datos generales
     # =====================================================
@@ -672,7 +728,7 @@ def generar_ficha_tecnica_3d(prenda_data):
     elementos.append(tabla_info)
 
     # =====================================================
-    # Generar PDF
+    # 📄 Generar PDF
     # =====================================================
     doc.build(elementos)
     pdf_bytes = buffer.getvalue()

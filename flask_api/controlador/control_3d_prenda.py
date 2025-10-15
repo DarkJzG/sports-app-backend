@@ -8,6 +8,7 @@ import cloudinary.uploader
 from flask_api.modelo.modelo_3d_prenda import guardar_prenda_3d, listar_prendas_3d, obtener_prenda_3d
 from flask_api.controlador.control_ficha_tecnica import generar_ficha_tecnica_3d
 from flask_api.controlador.generar_plano_sublimacion import subir_plano_sublimacion
+import os
 
 
 def extraer_dataurl_png(data_url):
@@ -29,57 +30,45 @@ def guardar_diseno_prenda_3d(data, archivo):
     print("🧾 Datos recibidos:", list(data.keys()))
     print("📦 Archivos recibidos:", list(request.files.keys()))
 
+    renders = {}
+    for key in ["render_frente", "render_espalda", "render_lado_izq", "render_lado_der"]:
+        file = request.files.get(key)
+        if file:
+            upload = cloudinary.uploader.upload(
+                file,
+                folder="disenos3d/renders",
+                public_id=f"{data.get('modelo')}_{key}",
+                resource_type="image"
+            )
+            renders[key] = upload["secure_url"]
+
+    data["renders"] = renders
+
+
     if not data.get("user_id"):
         raise ValueError("Falta el user_id")
 
     # ==============================
-    # 1️⃣ Subir imagen render_final
-    # ==============================
-    if archivo:
-        upload_result = cloudinary.uploader.upload(
-            archivo,
-            folder="disenos3d",
-            public_id=secure_filename(data.get("modelo", f"diseno_{datetime.utcnow().timestamp()}")),
-            resource_type="image"
-        )
-        data["render_final"] = upload_result["secure_url"]
-        print(f"📸 Imagen render_final subida a Cloudinary: {data['render_final']}")
-    else:
-        data["render_final"] = None
-        print("⚠️ No se recibió imagen render_final")
-
-    # ==============================
-    # 1️⃣.5️⃣ Subir versión sublimación (sin fondo del frontend)
-    # ==============================
-    render_subl = data.get("render_sublimacion")
-    if render_subl and isinstance(render_subl, str) and render_subl.startswith("data:image/png;base64,"):
-        try:
-            png_bytes = extraer_dataurl_png(render_subl)
-            upload_subl = cloudinary.uploader.upload(
-                io.BytesIO(png_bytes),
-                folder="disenos3d/sublimacion",
-                public_id=secure_filename(f"subl_{data.get('modelo', datetime.utcnow().timestamp())}"),
-                resource_type="image"
-            )
-            data["render_sublimacion"] = upload_subl["secure_url"]
-            print(f"🎨 Imagen sublimación subida: {data['render_sublimacion']}")
-        except Exception as e:
-            print("⚠️ Error subiendo render_sublimacion:", e)
-            data["render_sublimacion"] = None
-    else:
-        data["render_sublimacion"] = None
-
-    # ==============================
     # 2️⃣ Limpieza de datos y tipos
-    # ==============================
     for campo in ["colors", "textures", "decals", "textDecals"]:
         if isinstance(data.get(campo), str):
             try:
                 data[campo] = json.loads(data[campo])
             except Exception:
                 data[campo] = {} if campo in ["colors", "textures"] else []
+    
+    # Parsear UV resolution si está presente
+    if isinstance(data.get("uv_resolution"), str):
+        try:
+            data["uv_resolution"] = json.loads(data["uv_resolution"])
+        except:
+            data["uv_resolution"] = None
+            
+    if isinstance(data.get("uv_resolution"), list):
+        data["uv_resolution"] = [int(x) for x in data["uv_resolution"]]
 
-    # Asegurar que decals tengan sólo URLs
+
+    # Asegurar que decals tengan solo URLs
     decals = data.get("decals", [])
     for d in decals:
         if not d.get("url"):
@@ -119,7 +108,14 @@ def guardar_diseno_prenda_3d(data, archivo):
     # ==============================
     db = current_app.mongo.db
     try:
-        mask_path = f"./static/prendas3d/{data.get('design_id', 'base')}_rgb.png"
+        mask_dir = os.path.join(os.path.dirname(__file__), "..", "static", "prendas3d")
+        design_id = data.get("design_id", "base")
+
+        mask_filename = f"mask_{design_id}_rgb.png" if design_id == "base" else f"{design_id}_rgb.png"
+        mask_path = os.path.abspath(os.path.join(mask_dir, mask_filename))
+
+        print(f"Buscando máscara en: {mask_path}")
+
         plano_url = subir_plano_sublimacion(data, mask_path)
         print(f"🧵 Plantilla plana subida: {plano_url}")
         db["prendas_3d"].update_one(
@@ -144,6 +140,5 @@ def guardar_diseno_prenda_3d(data, archivo):
         "ok": True,
         "mensaje": "Diseño 3D guardado correctamente",
         "id": str(prenda_id),
-        "render_final": data["render_final"],
         "ficha_pdf_url": ficha_url
     }

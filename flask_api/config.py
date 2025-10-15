@@ -21,7 +21,7 @@ class Config:
     CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "_Y_acHO10geJ7Z8Nape29CDPOdA")
 
     # JWT
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "clave-secreta-ultra-segura")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "Tupapitochulo_69")
 
 
     # Mail

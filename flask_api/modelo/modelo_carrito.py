@@ -39,3 +39,11 @@ class ModeloCarrito:
         return current_app.mongo.db.carrito.delete_many(
             {"userId": user_id, "estado": "pendiente"}
         )
+
+    @staticmethod
+    def contar_items_carrito(user_id):
+        return current_app.mongo.db.carrito.count_documents({
+            "userId": user_id,
+            "estado": "pendiente"
+        })
+

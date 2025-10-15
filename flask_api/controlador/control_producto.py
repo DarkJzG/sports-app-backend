@@ -16,6 +16,7 @@ def crear_producto():
     tela_id = data.get("tela_id")
     color = data.get("color")
     imagen_url = data.get("imagen_url")
+    genero = data.get("genero", "unisex")
 
     if not nombre or not categoria_id or not tela_id or not imagen_url or not (color and color.get("lote_id")):
         return jsonify({"ok": False, "msg": "Faltan campos obligatorios"}), 400
@@ -28,8 +29,9 @@ def crear_producto():
         "categoria_nombre": data.get("categoria_nombre"),
         "tela_id": tela_id,
         "tela_nombre": data.get("tela_nombre"),
-        "color": color,  # objeto con {lote_id, color, precio_unitario}
+        "color": color,  
         "tallas_disponibles": data.get("tallas_disponibles", []),
+        "genero": genero,
 
         "mano_obra_id": data.get("mano_obra_id"),
         "mano_obra_prenda": float(data.get("mano_obra_prenda", 0)),
@@ -83,7 +85,7 @@ def actualizar_producto(id):
 
     campos = [
         "nombre", "observaciones", "categoria_id", "categoria_nombre",
-        "tela_id", "tela_nombre", "color", "tallas_disponibles",
+        "tela_id", "tela_nombre", "color", "tallas_disponibles", "genero",
         "mano_obra_id", "mano_obra_prenda", "insumos", "cantDisenos",
         "costos", "precio_venta", "ganancia_menor", "ganancia_mayor",
         "imagen_url", "estado"
@@ -109,3 +111,11 @@ def eliminar_producto(id):
         return jsonify({"ok": True, "msg": "Producto eliminado"})
     else:
         return jsonify({"ok": False, "msg": "No encontrado"}), 404
+
+
+def listar_por_categoria(categoria_id):
+    col = get_producto_collection()
+    productos = list(col.find({"categoria_id": categoria_id, "estado": "activo"}))
+    for p in productos:
+        p["_id"] = str(p["_id"])
+    return jsonify(productos)

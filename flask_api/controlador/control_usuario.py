@@ -9,12 +9,6 @@ def actualizar_perfil(user_id: str, data: dict):
         "nombre": data.get("nombre"),
         "apellido": data.get("apellido"),
         "telefono": data.get("telefono"),
-        "codigo_postal" : data.get("codigo_postal"),
-        "direccion_principal": data.get("direccion_principal"),
-        "direccion_secundaria": data.get("direccion_secundaria"),
-        "ciudad": data.get("ciudad"),
-        "provincia": data.get("provincia"),
-        "pais": data.get("pais"),
 
     }
     # limpiar None

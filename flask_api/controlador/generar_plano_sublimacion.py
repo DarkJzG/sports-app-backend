@@ -1,115 +1,106 @@
 # flask_api/controlador/generar_plano_sublimacion.py
-import io
-import requests
+import io, requests, os, math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 import cloudinary.uploader
 
-def aplicar_color_por_canal(mask_path, zones):
+
+# -----------------------------------------------------
+# Función principal
+# -----------------------------------------------------
+def generar_plano_uv(mask_path, prenda_data, uv_layout_path=None):
     """
-    Colorea la máscara RGB según los colores definidos en 'zones'.
+    Genera un plano 2D de sublimación real a partir del UV layout + máscara RGB.
+    Cada canal (R,G,B) representa una zona distinta.
     """
+
+    # === 1️⃣ Cargar la máscara RGB base ===
     mask = Image.open(mask_path).convert("RGB")
-    arr = np.array(mask)
 
-    base = np.zeros_like(arr)
-    for zona, data in zones.items():
-        color_hex = data.get("color", "#FFFFFF").lstrip("#")
-        rgb = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
-        channel = data.get("channel")
-        if not channel:
-            continue
-        if channel == "R":
-            base[(arr[:, :, 0] > 128) & (arr[:, :, 1] < 100) & (arr[:, :, 2] < 100)] = rgb
-        elif channel == "G":
-            base[(arr[:, :, 1] > 128) & (arr[:, :, 0] < 100) & (arr[:, :, 2] < 100)] = rgb
-        elif channel == "B":
-            base[(arr[:, :, 2] > 128) & (arr[:, :, 0] < 100) & (arr[:, :, 1] < 100)] = rgb
-    return Image.fromarray(base.astype("uint8"), "RGB")
+    # Usar tamaño real de la máscara (sin redimensionar)
+    width, height = mask.size
+    npmask = np.array(mask)
+
+    # Crear lienzo base del mismo tamaño
+    base = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    # Guardar resolución usada (opcional)
+    prenda_data["uv_resolution_real"] = [width, height]
 
 
-def generar_plano_sublimacion(prenda_data, mask_path):
-    """
-    Genera una plantilla 2D plana con colores, texturas, logos y textos.
-    """
-    zones = {}
-    design_zones = prenda_data.get("colors", {})
-    textures = prenda_data.get("textures", {})
-
-    # Combinar canales y texturas
-    for zona, color in design_zones.items():
-        zones[zona] = {
-            "color": color,
-            "channel": _map_channel(zona),
-            "texture": textures.get(zona)
-        }
-
-    # 1️⃣ Colorear base según máscara RGB
-    base = aplicar_color_por_canal(mask_path, zones).convert("RGBA")
-
-    # 2️⃣ Superponer texturas
-    for zona, data in zones.items():
-        tex_url = data.get("texture")
-        if tex_url:
-            try:
-                tex_img = Image.open(io.BytesIO(requests.get(tex_url).content)).convert("RGBA")
-                tex_img = tex_img.resize(base.size)
-                base = Image.alpha_composite(base, tex_img)
-            except Exception:
-                continue
-
-    draw = ImageDraw.Draw(base)
-
-    # 3️⃣ Añadir logos (posición fija simulada)
-    for logo in prenda_data.get("decals", []):
-        url = logo.get("url")
-        if not url:
-            continue
+    if uv_layout_path and uv_layout_path.endswith((".png", ".jpg")):
         try:
-            logo_img = Image.open(io.BytesIO(requests.get(url).content)).convert("RGBA")
-            logo_img = logo_img.resize((300, 300))
-            x, y = (1000, 400)  # Posición base fija o según tipo de zona
-            base.alpha_composite(logo_img, (x, y))
-        except Exception:
-            pass
-
-    # 4️⃣ Añadir textos
-    for t in prenda_data.get("textDecals", []):
-        txt = t.get("text", "")
-        color = t.get("fill", "#000000")
-        font = ImageFont.truetype("arial.ttf", 160)
-        draw.text((1300, 1700), txt, fill=color, font=font)
-
-    # 5️⃣ Guardar en memoria
-    out = io.BytesIO()
-    base.save(out, format="PNG")
-    out.seek(0)
-    return out
+            uv_img = Image.open(uv_layout_path).convert("RGBA")
+            if uv_img.size != (width, height):
+                uv_img = uv_img.resize((width, height), Image.LANCZOS)
+            base.alpha_composite(uv_img, (0, 0))
+        except Exception as e:
+            print("⚠️ No se pudo usar el UV layout:", e)
 
 
-def _map_channel(zona_name):
+    # === 3️⃣ Función auxiliar: rellenar zonas RGB ===
+    def fill_zone(channel, color_hex):
+        mask_bin = (npmask[:, :, channel] > 128).astype(np.uint8) * 255
+        mask_img = Image.fromarray(mask_bin, "L")
+        color_layer = Image.new("RGBA", mask.size, color_hex)
+        base.paste(color_layer, (0, 0), mask_img)
+
+    # === 4️⃣ Rellenar colores según canales definidos en la máscara ===
+    zones = prenda_data.get("colors", {})
+    design_id = prenda_data.get("design_id", "base")
+
+    channel_map = _get_channel_map(design_id)
+    for zona, color_hex in zones.items():
+        ch = channel_map.get(zona)
+        if ch is not None:
+            fill_zone(ch, color_hex)
+
+
+    return base
+
+
+def _get_channel_map(design_id):
     """
-    Relaciona nombres de zonas con canales RGB (depende de tu máscara).
+    Define qué canal RGB usa cada zona según el diseño.
     """
-    mapping = {
-        "torso": "R",
-        "mangas": "G",
-        "cuello": "B",
-        "franja": "G",
+    maps = {
+        "base": {"cuello": 0, "mangas": 1, "torso": 2},  # R,G,B
+        "rayo": {"torso": 0, "franja": 1, "cuello": 2},
     }
-    return mapping.get(zona_name, "R")
+    return maps.get(design_id, {"torso": 0, "mangas": 1, "cuello": 2})
 
 
+# -----------------------------------------------------
+# Subir a Cloudinary
+# -----------------------------------------------------
 def subir_plano_sublimacion(prenda_data, mask_path):
     """
-    Genera y sube la plantilla de sublimación a Cloudinary.
+    Genera el plano final combinando la máscara RGB con el UV layout.
     """
-    plano_io = generar_plano_sublimacion(prenda_data, mask_path)
-    modelo = prenda_data.get("modelo", f"plano_{prenda_data.get('_id', '')}")
-    upload = cloudinary.uploader.upload(
-        plano_io,
+    from flask_api.controlador.generar_plano_sublimacion import generar_plano_uv
+
+    # 1️⃣ Ruta local del UV layout
+    uv_layout_path = os.path.join(os.path.dirname(mask_path), "uv_guia.png")
+
+    # 2️⃣ Generar imagen PIL del plano
+    plano_img = generar_plano_uv(mask_path, prenda_data, uv_layout_path=uv_layout_path)
+
+    # 3️⃣ Reducir tamaño (para evitar límite de Cloudinary)
+    max_size = (2048, 2048)
+    plano_img.thumbnail(max_size, Image.LANCZOS)
+
+    # 4️⃣ Convertir a buffer binario
+    output = io.BytesIO()
+    plano_img.save(output, format="PNG", optimize=True)
+    output.seek(0)
+
+    # 5️⃣ Subir a Cloudinary
+    upload_result = cloudinary.uploader.upload(
+        output,
         folder="disenos3d/plantillas",
-        public_id=modelo,
-        resource_type="image"
+        public_id=f"plano_{prenda_data['modelo']}",
+        resource_type="image",
     )
-    return upload["secure_url"]
+
+    print(f"🧵 Plano de sublimación subido correctamente: {upload_result['secure_url']}")
+    return upload_result["secure_url"]

@@ -1,54 +1,52 @@
-# flask_api/rutas/ruta_autenticacion.py
 from flask import Blueprint, request
 from flask_api.controlador.control_autenticacion import (
-    login_user,
     register_user,
+    login_user,
     verificar_cuenta,
+    reenviar_verificacion,
     solicitar_reset_password,
     confirmar_reset_password,
-    reenviar_verificacion
+    cambiar_password,
 )
+from flask_jwt_extended import jwt_required
+
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
-# -------------------------------
-# Registro e inicio de sesión
-# -------------------------------
+# Registro
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    return register_user(data)
+    return register_user(request.get_json())
 
+# Login
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    return login_user(data)
+    return login_user(request.get_json())
 
-# -------------------------------
-# Verificación de correo
-# -------------------------------
-@auth_bp.route("/verificar/<token>", methods=["GET"])
-def verificar(token):
+# Verificar correo
+@auth_bp.route("/verificar", methods=["GET"])
+def verificar():
+    token = request.args.get("token")
     return verificar_cuenta(token)
 
-# -------------------------------
-# Recuperación de contraseña
-# -------------------------------
-@auth_bp.route("/reset-request", methods=["POST"])
-def reset_request():
-    data = request.get_json()
-    return solicitar_reset_password(data)
-
-@auth_bp.route("/reset-confirm", methods=["POST"])
-def reset_confirm():
-    data = request.get_json()
-    return confirmar_reset_password(data)
-
-
-# -------------------------------
 # Reenviar verificación
-# -------------------------------
 @auth_bp.route("/resend-verification", methods=["POST"])
 def resend_verification():
-    data = request.get_json()
-    return reenviar_verificacion(data)
+    return reenviar_verificacion(request.get_json())
+
+# Recuperar contraseña
+@auth_bp.route("/reset-request", methods=["POST"])
+def reset_request():
+    return solicitar_reset_password(request.get_json())
+
+# Confirmar reset
+@auth_bp.route("/reset-confirm", methods=["POST"])
+def reset_confirm():
+    return confirmar_reset_password(request.get_json())
+
+# Cambiar contraseña (autenticado)
+@auth_bp.route("/change-password", methods=["POST"])
+@jwt_required()
+def change_password():
+    return cambiar_password(request.get_json())
+

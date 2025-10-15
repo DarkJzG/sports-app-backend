@@ -21,13 +21,23 @@ def guardar_prenda_3d():
             if campo in data:
                 try:
                     data[campo] = json.loads(data[campo])
-                except Exception:
+                except Exception as e:
+                    print(f"⚠️ Error parseando {campo}:", e)
                     data[campo] = {} if campo in ["colors", "textures"] else []
         archivo = request.files.get("file")
+
+        print("🔎 Datos recibidos en guardar_prenda_3d():")
+        print(json.dumps({k: str(v)[:100] for k, v in data.items()}, indent=2))
+
         resultado = guardar_diseno_prenda_3d(data, archivo)
         return jsonify(resultado), 201
+
     except Exception as e:
+        import traceback
+        print("❌ Error general en /api/3d/prenda/guardar:")
+        traceback.print_exc()  # 🔥 Muestra la traza completa
         return jsonify({"error": str(e)}), 400
+
 
 
 @ruta_3d_prenda.route("/api/3d/prenda/listar", methods=["GET"])

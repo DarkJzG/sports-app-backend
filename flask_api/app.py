@@ -3,7 +3,7 @@ import os
 import cloudinary
 import cloudinary.uploader
 
-
+from flask import jsonify
 from dotenv import load_dotenv
 
 from flask import Flask
@@ -40,6 +40,7 @@ from flask_api.rutas.ruta_ia_texturas import ruta_ia_texturas
 
 from flask_api.rutas.ruta_camiseta_ia import ruta_camiseta_ia
 from flask_api.rutas.ruta_ia_camiseta import ruta_ia_camiseta
+from flask_api.rutas.ruta_camiseta_ia_v3 import ruta_camiseta_ia_v3
 
 from flask_api.rutas.ruta_ficha_tecnica import ruta_ficha_tecnica
 from flask_api.rutas.ruta_3d_prenda import ruta_3d_prenda
@@ -58,6 +59,14 @@ mongo_uri = os.getenv("MONGO_URI")
 print(f"Conectando a MongoDB con URI: {mongo_uri}")
 
 jwt = JWTManager(app)
+app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+app.config["JWT_HEADER_NAME"] = "Authorization"
+app.config["JWT_HEADER_TYPE"] = "Bearer"
+app.config["JWT_ERROR_MESSAGE_KEY"] = "msg"
+app.config["FRONTEND_URL"] = "http://localhost:3000"
+
+
+
 
 
 client = MongoClient(mongo_uri)
@@ -81,10 +90,16 @@ cloudinary.config(
 )
 
 CORS(app, 
-     resources={r"/*": {"origins": [
-        "http://localhost:3000",
-        "http://192.168.3.241:3000"
-    ]}}, 
+     resources={r"/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://192.168.3.241:3000"
+        ],
+        "methods": ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Authorization"]
+
+    }}, 
     supports_credentials=True)
 
 
@@ -112,6 +127,7 @@ app.register_blueprint(prendas_ia_bp)
 app.register_blueprint(ruta_ia_texturas)
 app.register_blueprint(ruta_camiseta_ia)
 app.register_blueprint(ruta_ia_camiseta)
+app.register_blueprint(ruta_camiseta_ia_v3)
 app.register_blueprint(ruta_ficha_tecnica)
 app.register_blueprint(ruta_3d_prenda)
 app.register_blueprint(ruta_3d_logos)
@@ -122,3 +138,8 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    print("⚠️ Error general:", e)
+    return jsonify({"ok": False, "msg": str(e)}), 500

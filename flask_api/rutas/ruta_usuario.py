@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from bson import ObjectId
 from flask_api.modelo.modelo_usuario import get_users_collection
 from flask_api.controlador.control_usuario import actualizar_perfil
+from flask_api.controlador.control_direcciones import agregar_direccion, listar_direcciones, eliminar_direccion
 
 usuario_bp = Blueprint("usuario", __name__, url_prefix="/usuario")
 
@@ -22,3 +23,16 @@ def get_perfil(user_id):
 def update_perfil(user_id):
     data = request.get_json() or {}
     return actualizar_perfil(user_id, data)
+
+@usuario_bp.route("/<user_id>/direcciones", methods=["GET"])
+def obtener_direcciones(user_id):
+    return listar_direcciones(user_id)
+
+@usuario_bp.route("/<user_id>/direcciones", methods=["POST"])
+def crear_direccion(user_id):
+    data = request.get_json() or {}
+    return agregar_direccion(user_id, data)
+
+@usuario_bp.route("/direcciones/<dir_id>", methods=["DELETE"])
+def borrar_direccion(dir_id):
+    return eliminar_direccion(dir_id)

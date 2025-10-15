@@ -24,3 +24,7 @@ def update_producto(id):
 @producto_bp.route("/delete/<id>", methods=["DELETE"])
 def delete_producto(id):
     return control_producto.eliminar_producto(id)
+
+@producto_bp.route("/categoria/<categoria_id>", methods=["GET"])
+def get_productos_por_categoria(categoria_id):
+    return control_producto.listar_por_categoria(categoria_id)

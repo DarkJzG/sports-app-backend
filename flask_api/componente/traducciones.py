@@ -21,11 +21,28 @@ MAPEO_ATRIBUTOS_ES = {
     "orange": "naranja",
     "purple": "morado",
     "sky blue": "celeste",
+    "brown": "marrón", 
+    "pink": "rosado",
 
     # Cuello
     "round neck": "cuello redondo",
     "V-neck": "cuello en V",
     "polo collar": "cuello polo",
+
+    "forest camouflage palette with olive green, brown and black tones": "camuflaje con paleta de marrón, verde y negro",
+    "desert camouflage palette with beige, tan and light brown tones": "camuflaje con paleta de marrón, verde y negro",
+    "urban camouflage palette with gray, white and black tones": "camuflaje con paleta de marrón, verde y negro",
+    "custom camouflage palette blending tones": "camuflaje con paleta de marrón, verde y negro",
+    "balanced camouflage palette blending neutral colors": "camuflaje con paleta de marrón, verde y negro",
+    "custom": "personalizado",
+    "fine small-scale pattern, micro camo style with detailed textures": "patrón pequeño con detallado",
+    "large-scale classic military pattern with broad blotches": "patrón grande con blotches",
+    "medium-scale balanced camouflage texture": "patrón mediano con textura de camuflaje",
+    "rounded organic shapes with smooth edges, classic military look": "patrón redondo con formas orgánicas",
+    "pixelated camouflage with square digital blocks": "patrón pixelado con bloques digitales",
+    "fragmented geometric pattern with angular and modern shapes": "patrón fragmentado con formas geométricas",
+
+    "sleeves_torso": "manga y torso",
 
     # Mangas
     "short sleeves": "manga corta",
@@ -353,7 +370,57 @@ TRADUCCIONES = {
     "male": "Hombre",
     "female": "Mujer",
     "unisex": "Unisex",
-    "sportswear": "deportiva"
+    "sportswear": "deportiva",
+    "small": "pequeña",
+    "medium": "mediana",
+    "large": "grande",
+    "tight": "ajustado",
+    "broad": "amplio",
+    "regular": "medio",
+    "flat": "plana",
+    "layered": "superpuesta",
+    "fragmented": "fragmentada",
+
+    "brush strokes": "brochazos",
+    "artistic brush strokes with expressive paint textures": "brochazos con texturas de pintura expresivas",
+    "dynamic paint splatter effect, conveying energy and motion": "efecto de salpicaduras dinámicas, transmitiendo energía y movimiento",
+    "fluid art effect with smooth watercolor-like transitions": "efecto de arte fluido con transiciones suaves como agua de color",
+    "ethereal smoke-like effect with soft diffusion and transparency": "efecto de humo etéreo con difusión suave y transparencia",
+    "artistic abstract texture blending colors organically": "textura abstracta artística que combina colores orgánicamente",
+    "paint splatter": "salpicaduras",
+    "fluid art": "arte fluido",
+    "smoke effect": "efecto de humo",
+    "subtle": "suave",
+    "bold": "fuerte",
+    "full": "completo",
+    "partial": "parcial",
+    "subtle and soft contrast": "contraste suave y suave",
+    "bold, high-contrast artistic appearance": "contraste fuerte y alto",
+    "moderate artistic intensity": "intensidad artística moderada",
+    "covering the entire shirt surface, including torso and sleeves": "cubriendo la superficie completa de la camiseta, incluyendo el pecho y las mangas",
+    "applied diffusely across scattered zones": "aplicado difusamente en zonas dispersas",
+    "balanced coverage across the garment": "cobertura equilibrada en el vestuario",
+   
+
+    "chest": "pecho",
+    "horizontal stripe pattern reminiscent of classic football jerseys": "horizontal stripe pattern reminiscent of classic football jerseys",
+    "vertical stripe pattern inspired by basketball uniforms": "vertical stripe pattern inspired by basketball uniforms",
+    "diagonal or irregular stripe composition": "diagonal or irregular stripe composition",
+    "thin elegant stripes for a refined appearance": "thin elegant stripes for a refined appearance",
+    "bold thick stripes for a striking and modern look": "bold thick stripes for a striking and modern look",
+    "medium-width stripes for balanced aesthetics": "medium-width stripes for balanced aesthetics",
+    "random number of stripes arranged dynamically": "random number of stripes arranged dynamically",
+    "approximately visible stripes evenly distributed": "approximately visible stripes evenly distributed",
+    "covering the entire shirt surface including torso and sleeves": "covering the entire shirt surface including torso and sleeves",
+    "limited to the chest area with plain sleeves and back": "limited to the chest area with plain sleeves and back",
+    "balanced coverage across the main torso": "balanced coverage across the main torso",
+    "featuring stripes on a  base": "featuring stripes on a base",
+   
+
+
+
+
+
 
  
 }

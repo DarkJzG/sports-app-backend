@@ -33,7 +33,7 @@ def guardar_prenda_3d(data):
         "textures": data.get("textures", {}),
         "decals": data.get("decals", []),
         "textDecals": data.get("textDecals", []),
-        "render_final": data.get("render_final"),
+        "renders": data.get("renders", {}),
         "fecha_creacion": datetime.utcnow(),
         "fecha_actualizacion": datetime.utcnow(),
     }
