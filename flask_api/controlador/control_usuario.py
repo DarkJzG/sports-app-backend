@@ -8,7 +8,7 @@ def actualizar_perfil(user_id: str, data: dict):
     update = {
         "nombre": data.get("nombre"),
         "apellido": data.get("apellido"),
-        "telefono": data.get("telefono"),
+        "cedula": data.get("cedula"),
 
     }
     # limpiar None

@@ -23,18 +23,34 @@ def build_prompt_degradado(attr: Dict) -> str:
         # 🧩 2) Construcción por número de colores
         # ===============================
         if num_colores == 2:
-            grad_desc = f" The main body features a full gradient pattern. The gradient is a smooth {tipo} transition from {colores[0]} to {colores[1]}"
+            grad_desc = (
+                f"The entire t-shirt, including sleeves and collar, has a full gradient design "
+                f"The base color {colores[0]} covers the whole garment, and the gradient is a full transition {tipo} "
+                f"from {colores[0]} to {colores[1]} across the entire surface."
+            )
         elif num_colores == 3:
-            grad_desc = f" The main body features a full gradient pattern. The gradient is a multi-stop {tipo} type, smoothly blending: {colores[0]} (base) → {colores[1]} → {colores[2]} (accent)"
+            grad_desc = (
+                f"The entire t-shirt, including sleeves and collar, has a full gradient design "
+                f"The base color {colores[0]} covers the whole garment, and the gradient is a full transition {tipo} "
+                f"from {colores[0]} through {colores[1]} to {colores[2]} across the entire surface."
+            )
         elif num_colores >= 4:
-            grad_desc = f" The gradient is a multi-stop {tipo} type, smoothly blending: {colores[0]} (base) → {colores[1]} → {colores[2]} → {colores[3]} (accent)"
+            grad_desc = (
+                f"The entire t-shirt, including sleeves and collar, has a full gradient design "
+                f"The base color {colores[0]} covers the whole garment, and the gradient is a full transition {tipo} "
+                f"from {colores[0]} to {colores[1]}, {colores[2]}, {colores[3]} and {colores[4]}."
+            )
         else:
-            grad_desc = f" The gradient is a multi-stop {tipo} type, smoothly blending: {colores[0]} (base) → {colores[1]} → {colores[2]} → {colores[3]} → {colores[4]} (accent)"
+            grad_desc = (
+                f"The entire t-shirt, including sleeves and collar, features a soft {tipo} gradient, "
+                f"starting from {colores[0]} (base color covering the whole shirt) blending into the secondary tones."
+            )
 
         # ===============================
     # 🧩 3) Contexto visual base
         # ===============================
         context = (
+            "uniform color coverage, no neutral or gray areas, gradient applied consistently to torso, sleeves and collar,"
             "displayed on an invisible mannequin,"
             "perfect studio lighting, catalog style,"
             "sharp focus, plain light gray background,"

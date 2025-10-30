@@ -37,7 +37,7 @@ def build_prompt_dos_tonos(attr: Dict) -> str:
             division_desc = (
                 f"diagonal two-tone layout with {color1} upper-left and {color2} bottom-right"
             )
-        elif division == "sleeves_torso":
+        elif division == "torso_sleeves":
             division_desc = (
                 f"{color1} torso and {color2} sleeves and collar for a contrasting sporty style"
             )

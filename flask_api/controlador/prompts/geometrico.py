@@ -1,61 +1,95 @@
 from typing import Dict
 from flask_api.componente.traducciones import TRADUCCIONES
 
+# flask_api/controlador/patrones/geometrico.py
+from typing import Dict
+
 def build_prompt_geometrico(attr: Dict) -> str:
     print("🧩 Entrando a build_prompt_geometrico con:", attr)
 
     try:
+        # ====== 🟡 Datos base ======
         colores = [c for c in attr.get("colores", []) if isinstance(c, str) and c.strip()]
         num_colores = len(colores)
-        figura = attr.get("figura", "geometric shapes")
-        escala = attr.get("escala", "medium").lower()       
-        espaciado = attr.get("espaciado", "regular").lower() 
-        superposicion = attr.get("superposicion", "flat").lower() 
+        figura = attr.get("figura", "geometric shapes").lower()
+        escala = attr.get("escala", "medium").lower()
+        espaciado = attr.get("espaciado", "regular").lower()
+        superposicion = attr.get("superposicion", "flat").lower()
 
         genero = attr.get("genero", "")
         cuello = attr.get("cuello", "")
         manga = attr.get("manga", "")
         tela = attr.get("tela", "")
-        garment = f"high-end photorealistic sportswear t-shirt mockup for {genero}, with {cuello} neck and {manga} sleeves, made of {tela} fabric"
 
-        if num_colores == 3:
-            color_desc = f"{colores[0]} color base with {colores[1]} color main {figura} and {colores[2]} color accent details"
-        elif num_colores == 4:
-            color_desc = f"{colores[0]} color base, featuring {figura} in {colores[1]}, {colores[2]}, and {colores[3]} tones"
-        elif num_colores >= 5:
-            color_desc = f"{colores[0]} color base, with complex {figura} in multiple tones: {', '.join(map(str, colores[1:]))}"
-        else:
-            color_desc = f"geometric pattern with varied colors and {figura}"
-
-        scale_desc = (
-            "small-scale fine shapes" if "pequeña" in escala or "small" in escala
-            else "large-scale wide shapes"
+        # ====== 🩳 Descripción del modelo base ======
+        garment = (
+            f"high-end photorealistic sportswear t-shirt mockup for {genero}, "
+            f"with {cuello} neck and {manga} sleeves, made of {tela} performance fabric, "
+            f"showing realistic textile folds and fine fiber texture."
         )
 
-        space_desc = (
-            "tightly packed, minimal spacing" if "ajustado" in espaciado or "tight" in espaciado
-            else "widely spaced, airy composition"
+        # ====== 🎨 Colores y relación visual ======
+        if num_colores == 2:
+            color_desc = (
+                f"The entire shirt is coated in a solid {colores[0]} base tone, "
+                f"with geometric {figura} printed in a contrasting {colores[1]}."
+            )
+        elif num_colores == 3:
+            color_desc = (
+                f"The shirt features a {colores[0]} background, "
+                f"with main {figura} shapes in {colores[1]} and subtle accent fragments in {colores[2]}."
+            )
+        elif num_colores >= 4:
+            color_desc = (
+                f"A dynamic composition with a {colores[0]} base tone, "
+                f"and {figura} in multi-tonal palette of {', '.join(colores[1:])}, "
+                f"creating vibrant contrasts and visual depth."
+            )
+        else:
+            color_desc = f"Full-shirt geometric pattern with bright, varied colors harmoniously combined."
+
+        # ====== ⚙️ Escala ======
+        if "small" in escala or "peque" in escala:
+            scale_desc = "tiny and dense geometric elements forming a detailed texture"
+        elif "large" in escala or "grande" in escala:
+            scale_desc = "large bold geometric figures clearly visible"
+        else:
+            scale_desc = "medium-scale geometric shapes evenly distributed"
+
+        # ====== ⚙️ Espaciado ======
+        if "tight" in espaciado or "ajustado" in espaciado:
+            spacing_desc = "minimal spacing between shapes for compact coverage"
+        elif "wide" in espaciado or "amplio" in espaciado:
+            spacing_desc = "wide spacing with clear separation between elements"
+        else:
+            spacing_desc = "regular spacing maintaining balanced rhythm across the surface"
+
+        # ====== ⚙️ Superposición / profundidad ======
+        if "layer" in superposicion:
+            layering_desc = "slightly overlapping and layered fragments adding sense of depth and motion"
+        elif "fragment" in superposicion:
+            layering_desc = "fragmented, interlocking shapes producing a dynamic shattered effect"
+        else:
+            layering_desc = "flat, non-overlapping layout emphasizing clean geometry"
+
+
+        # ====== 🧩 Descripción del patrón ======
+        pattern_desc = (
+            f"{color_desc} "
+            f"The {figura} composition covers the entire garment, including torso, sleeves, and collar, "
+            f"with {scale_desc}, {spacing_desc}, {layering_desc}, and randomly oriented figures creating spontaneous arrangement. "
+            f"The result is a modern and dynamic sportswear aesthetic, highly intricate and eye-catching visual layout."
         )
 
-        if superposicion == "flat":
-            overlay_desc = "flat non-overlapping layout"
-        elif superposicion == "layered":
-            overlay_desc = "slightly overlapping layered layout for depth"
-        elif superposicion == "fragmented":
-            overlay_desc = "fragmented and dynamic composition, with broken shapes"
-        else:
-            overlay_desc = "balanced geometric arrangement"
-
-        pattern_desc = f"{color_desc}, {scale_desc}, {space_desc}, {overlay_desc}"
-
+        # ====== 🌤️ Contexto fotográfico ======
         context = (
-            "displayed on an invisible mannequin, "
-            "perfect studio lighting, catalog style, "
-            "sharp focus, plain light gray background, "
-            "no logos, no text, hyper-detailed textile texture."
+            "Displayed on an invisible mannequin under soft studio light, "
+            "catalog presentation, sharp focus, light gray background, "
+            "high-detail fabric texture, no text, no logos, professional product photography."
         )
 
-        prompt = f"{garment}, {pattern_desc}, {context}"
+        # ====== 🧠 Construcción final ======
+        prompt = f"{garment} {pattern_desc} {context}"
 
         print("🟢 build_prompt_geometrico OK")
         print("🟢 Prompt generado:", prompt)
@@ -64,6 +98,7 @@ def build_prompt_geometrico(attr: Dict) -> str:
     except Exception as e:
         print("❌ Error dentro de build_prompt_geometrico:", e)
         raise
+
 
 
 # =========================================

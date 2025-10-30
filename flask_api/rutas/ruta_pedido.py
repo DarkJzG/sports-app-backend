@@ -54,7 +54,6 @@ def cambiar_estado(pedidoId):
 @pedido_bp.route("/confirmar-transferencia/<userId>", methods=["POST"])
 def confirmar_transferencia(userId):
     try:
-
         # Verificar si se envió un archivo
         if 'imagen' not in request.files:
             return jsonify({"ok": False, "msg": "No se ha proporcionado ninguna imagen"}), 400
@@ -78,20 +77,20 @@ def confirmar_transferencia(userId):
         except json.JSONDecodeError:
             return jsonify({"ok": False, "msg": "Formato de datos inválido"}), 400
 
-
-        # Subir la imagen a Cloudinary
+        # ✅ Subir la imagen a Cloudinary ANTES de procesar el pedido
         try:
             upload_result = cloudinary.uploader.upload(
                 file,
                 folder="transferencias",
                 resource_type="image"
             )
-            # Agregar la URL de la imagen a los datos del pedido
-            data['imagenTransferencia'] = upload_result['secure_url']
+            imagen_url = upload_result['secure_url']
+            current_app.logger.info(f"Imagen subida a Cloudinary: {imagen_url}")
         except Exception as e:
             current_app.logger.error(f"Error al subir la imagen: {str(e)}")
             return jsonify({"ok": False, "msg": "Error al procesar la imagen"}), 500
 
+        # ✅ Actualizar fichas técnicas si aplica
         for item in data.get("items", []):
             if item.get("ficha_id") and item.get("talla"):
                 get_fichas_collection().update_one(
@@ -99,13 +98,30 @@ def confirmar_transferencia(userId):
                     {"$set": {"talla": item["talla"]}}
                 )
 
-        # 🔹 Procesar el pedido en la capa de controlador
-        return confirmar_pedido_transferencia(userId, data)
+        # ✅ IMPORTANTE: Pasar los 3 parámetros a la función del controlador
+        return confirmar_pedido_transferencia(userId, data, imagen_url)
         
     except Exception as e:
         current_app.logger.error(f"Error en confirmar transferencia: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "msg": "Error al procesar la solicitud"}), 500
+
         
+# PATCH /pedido/<pedidoId>/pago/<pagoId>/aprobar
+@pedido_bp.route("/<pedidoId>/pago/<pagoId>/aprobar", methods=["PATCH"])
+def aprobar_pago_route(pedidoId, pagoId):
+    from flask_api.controlador.control_pedido import aprobar_pago
+    return aprobar_pago(pedidoId, pagoId)
+
+
+# PATCH /pedido/<pedidoId>/pago/<pagoId>/rechazar
+@pedido_bp.route("/<pedidoId>/pago/<pagoId>/rechazar", methods=["PATCH"])
+def rechazar_pago_route(pedidoId, pagoId):
+    from flask_api.controlador.control_pedido import rechazar_pago
+    data = request.get_json() or {}
+    motivo = data.get("motivo")
+    return rechazar_pago(pedidoId, pagoId, motivo)
 
 
 # POST /pedido/<pedidoId>/pago

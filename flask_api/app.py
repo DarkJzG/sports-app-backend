@@ -2,9 +2,12 @@
 import os
 import cloudinary
 import cloudinary.uploader
+import google.generativeai as genai
 
 from flask import jsonify
 from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask import Flask
 from flask_cors import CORS
@@ -13,6 +16,8 @@ from pymongo import MongoClient
 from flask_api.config import Config
 from flask_api.extensiones import mail
 from flask_jwt_extended import JWTManager
+
+from flask_api.rutas.ruta_empresa import empresa_bp
 
 from flask_api.rutas.ruta_autenticacion import auth_bp
 from flask_api.rutas.ruta_usuario import usuario_bp
@@ -45,6 +50,10 @@ from flask_api.rutas.ruta_camiseta_ia_v3 import ruta_camiseta_ia_v3
 from flask_api.rutas.ruta_ficha_tecnica import ruta_ficha_tecnica
 from flask_api.rutas.ruta_3d_prenda import ruta_3d_prenda
 from flask_api.rutas.ruta_3d_logos import ruta_3d_logos
+from flask_api.rutas.ruta_pedido_ficha import ruta_pedido_ficha
+
+from flask_api.rutas.ruta_camiseta_gemini_v3 import ruta_camiseta_gemini_v3
+from flask_api.rutas.ruta_chompa_ia_v1 import ruta_chompa_ia_v1
 
 
 
@@ -54,9 +63,14 @@ app.config.from_object(Config)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 
-load_dotenv()
 mongo_uri = os.getenv("MONGO_URI")
 print(f"Conectando a MongoDB con URI: {mongo_uri}")
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+    print("Gemini API configurada exitosamente.")
+else:
+    print("ADVERTENCIA: GEMINI_API_KEY no encontrada.")
 
 jwt = JWTManager(app)
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
@@ -74,11 +88,11 @@ db = client["sportsapp"]
 
 try:
     client.admin.command("ping")
-    print("✅ Conexión a MongoDB exitosa")
+    print("Conexión a MongoDB exitosa")
     print("FRONTEND_URL en app:", app.config["FRONTEND_URL"])
 
 except Exception as e:
-    print("❌ Error conectando a MongoDB:", e)
+    print(" Error conectando a MongoDB:", e)
 
 mongo = PyMongo(app)
 app.mongo = mongo
@@ -95,7 +109,7 @@ CORS(app,
             "http://localhost:3000",
             "http://192.168.3.241:3000"
         ],
-        "methods": ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        "methods": ["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Authorization"]
 
@@ -106,7 +120,7 @@ CORS(app,
 mail.init_app(app)
 
 
-
+app.register_blueprint(empresa_bp)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(usuario_bp)
@@ -131,6 +145,10 @@ app.register_blueprint(ruta_camiseta_ia_v3)
 app.register_blueprint(ruta_ficha_tecnica)
 app.register_blueprint(ruta_3d_prenda)
 app.register_blueprint(ruta_3d_logos)
+app.register_blueprint(ruta_pedido_ficha)
+
+app.register_blueprint(ruta_camiseta_gemini_v3)
+app.register_blueprint(ruta_chompa_ia_v1)
 
 @app.route("/")
 def home():
@@ -141,5 +159,5 @@ if __name__ == "__main__":
 
 @app.errorhandler(Exception)
 def handle_error(e):
-    print("⚠️ Error general:", e)
+    print(" Error general:", e)
     return jsonify({"ok": False, "msg": str(e)}), 500

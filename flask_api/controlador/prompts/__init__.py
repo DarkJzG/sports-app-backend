@@ -11,14 +11,14 @@ from .personalizado import build_prompt_personalizado, descripcion_personalizado
 def build_prompt_v3(attr: dict) -> str:
     diseno = attr.get("diseno", "solid")
     mapping = {
-        "gradient": build_prompt_degradado,
+        "degraded": build_prompt_degradado,
         "geometric": build_prompt_geometrico,
         "abstract": build_prompt_abstracto,
         "stripes": build_prompt_rayas,
         "camouflage": build_prompt_camuflaje,
-        "two_tone": build_prompt_dos_tonos,
+        "two_tones": build_prompt_dos_tonos,
         "solid": build_prompt_solido,
-        "full_print": build_prompt_personalizado,
+        "full_design": build_prompt_personalizado,
     }
     builder = mapping.get(diseno, build_prompt_solido)
     return builder(attr)
@@ -28,13 +28,13 @@ def descripcion_es_v3(attr: dict) -> str:
     diseno = attr.get("diseno", "solid").lower()
     mapping = {
         "geometric": descripcion_geometrico_es,
-        "gradient": descripcion_degradado_es,
+        "degraded": descripcion_degradado_es,
         "abstract": descripcion_abstracto_es,
         "stripes": descripcion_rayas_es,
         "camouflage": descripcion_camuflaje_es,
-        "two_tone": descripcion_dos_tonos_es,
+        "two_tones": descripcion_dos_tonos_es,
         "solid": descripcion_solido_es,
-        "full_print": descripcion_personalizado_es,
+        "full_design": descripcion_personalizado_es,
             }
     builder = mapping.get(diseno, descripcion_degradado_es)
     return builder(attr)

@@ -11,6 +11,44 @@ from flask_api.controlador.generar_plano_sublimacion import subir_plano_sublimac
 import os
 
 
+def calcular_costo_produccion_3d(data):
+    """
+    Cálculo simple basado en tela y diseño para estimar costo y precio final.
+    """
+    tela = (data.get("tela") or "").lower()
+    design_id = (data.get("design_id") or "").lower()
+
+    if "algodon" in tela or "cotton" in tela:
+        costo_material = 3.0
+    elif "poliester" in tela or "polyester" in tela:
+        costo_material = 2.0
+    else:
+        costo_material = 2.5
+
+    # Ajuste por diseño: rayo, base, etc.
+    if design_id != "base":
+        costo_diseno = 3.0
+    else:
+        costo_diseno = 2.0
+
+    costo_mano_obra = 0.8
+    costo_insumos = 0.6
+
+    total = round(costo_material + costo_diseno + costo_mano_obra + costo_insumos, 2)
+    precio_venta = round(total * 1.5, 2)
+    precio_mayor = round(total * 1.2, 2)
+
+    return {
+        "material": costo_material,
+        "diseno": costo_diseno,
+        "mano_obra": costo_mano_obra,
+        "insumos": costo_insumos,
+        "total": total,
+        "precio_venta": precio_venta,
+        "precio_mayor": precio_mayor,
+    }
+
+
 def extraer_dataurl_png(data_url):
     """Convierte un dataURL base64 (data:image/png;base64,...) en bytes binarios PNG."""
     if not data_url.startswith("data:image/png;base64,"):
@@ -29,6 +67,10 @@ def obtener_diseno_detalle(prenda_id):
 def guardar_diseno_prenda_3d(data, archivo):
     print("🧾 Datos recibidos:", list(data.keys()))
     print("📦 Archivos recibidos:", list(request.files.keys()))
+
+    costo = calcular_costo_produccion_3d(data)
+    data["costo"] = costo
+    print("💰 Costo de producción calculado:", costo)
 
     renders = {}
     for key in ["render_frente", "render_espalda", "render_lado_izq", "render_lado_der"]:
