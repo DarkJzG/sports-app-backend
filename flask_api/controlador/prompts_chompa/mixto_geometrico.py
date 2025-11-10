@@ -16,7 +16,7 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
         genero = attr.get("genero", "unisex")
         
         # Datos del diseño mixto
-        area_diseno = attr.get("areaDisenoIA", "pecho_hombros")
+        area_diseno = attr.get("areaDisenoIA", "chest_shoulders")
         color_base_mixto = attr.get("colorBaseMixto", "black")
         
         # Datos del patrón geométrico
@@ -24,16 +24,16 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
         colores_geometrico = attr.get("coloresGeometrico", [])
         
         # Construcción del tipo de prenda
-        if tipo_chompa == "chaqueta":
+        if tipo_chompa == "jacket":
             garment_type = "zip-up sports jacket"
         else:
-            garment_type = "pullover hoodie" if capucha == "yes" else "pullover sweatshirt"
+            garment_type = "pullover hoodie" if capucha == "Yeah" else "pullover sweatshirt"
         
-        hood_desc = "with hood" if capucha == "yes" else "without hood"
+        hood_desc = "with hood" if capucha == "Yeah" else "without hood"
         
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "laterales":
+        elif bolsillos == "sides":
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -44,38 +44,29 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
         )
         
         # Descripción del área
-        if area_diseno == "pecho_hombros":
+        if area_diseno == "chest_shoulders":
             area_desc = "chest, shoulders, and hood area"
             solid_desc = f"{color_base_mixto} solid color on lower body and sleeves"
         else:
             area_desc = "main body and lower panels"
             solid_desc = f"{color_base_mixto} solid color on shoulders and upper chest"
         
-        # Traducción de figura geométrica
-        if figura_geometrica == "triangulos":
-            shape = "triangles"
-        elif figura_geometrica == "cuadrados":
-            shape = "squares"
-        elif figura_geometrica == "hexagonos":
-            shape = "hexagons"
-        else:
-            shape = "geometric shapes"
-        
         # Descripción de colores
         num_colores = len(colores_geometrico)
         if num_colores >= 3:
             color_desc = (
                 f"base color {colores_geometrico[0]}, "
-                f"primary {shape} in {colores_geometrico[1]}, "
-                f"secondary accents in {colores_geometrico[2]}"
+                f"primary {figura_geometrica} shapes in {colores_geometrico[1]}, "
+                f"and subtle accent fragments in {colores_geometrico[2]}"
+                f"the {figura_geometrica} large bold geometric figures clearly visible, minimal spacing between shapes for compact coverage fragmented, interlocking shapes producing a dynamic shattered effect"
             )
             if num_colores >= 4:
                 color_desc += f" and {colores_geometrico[3]}"
         else:
-            color_desc = f"multi-color {shape} pattern"
+            color_desc = f"multi-color {figura_geometrica} pattern"
         
         geometric_desc = (
-            f"geometric pattern of {shape} on {area_desc}, "
+            f"geometric pattern of {figura_geometrica} on {area_desc}, "
             f"{color_desc}, tessellated design with sharp edges"
         )
         
@@ -119,7 +110,7 @@ def descripcion_mixto_geometrico_es(attr: Dict) -> str:
     else:
         tipo_desc = "chaqueta deportiva"
     
-    if area_diseno == "pecho_hombros":
+    if area_diseno == "chest_shoulders":
         area_desc = "pecho y hombros"
     else:
         area_desc = "cuerpo inferior"

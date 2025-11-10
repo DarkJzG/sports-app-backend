@@ -52,13 +52,13 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
             solid_desc = f"{color_base_mixto} solid color on shoulders and upper chest"
         
         # Descripción del estilo artístico
-        if estilo_artistico == "pinceladas":
+        if estilo_artistico == "brush strokes":
             style_desc = "artistic brush strokes with expressive paint textures"
-        elif estilo_artistico == "salpicaduras":
+        elif estilo_artistico == "splashes":
             style_desc = "dynamic paint splatter effect, conveying energy and motion"
-        elif estilo_artistico == "fluido":
+        elif estilo_artistico == "fluent":
             style_desc = "fluid art effect with smooth watercolor-like transitions"
-        elif estilo_artistico == "humo":
+        elif estilo_artistico == "smoke":
             style_desc = "ethereal smoke-like effect with soft diffusion"
         else:
             style_desc = "artistic abstract texture"

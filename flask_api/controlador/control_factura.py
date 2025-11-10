@@ -412,14 +412,11 @@ def generar_factura_pdf(pedido_id: str):
             resource_type="raw",
             public_id=nombre_archivo,
             format="pdf",
-            flags="attachment"  # Forzar descarga
+            type="upload",
+            access_mode="public"
         )
         
         factura_url = upload_result['secure_url']
-        
-        # Asegurar que tenga el parámetro de descarga
-        if '/upload/' in factura_url and 'fl_attachment' not in factura_url:
-            factura_url = factura_url.replace('/upload/', '/upload/fl_attachment/')
         
         current_app.logger.info(f"✅ Factura generada y subida: {factura_url}")
         

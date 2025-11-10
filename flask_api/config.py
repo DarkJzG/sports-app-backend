@@ -15,6 +15,9 @@ class Config:
     #Stable Diffusion
     STABLE_URL = os.getenv("STABLE_URL", "http://127.0.0.1:7860")
 
+    #Hugging Face
+    HF_TOKEN = os.getenv("HF_TOKEN")
+
     # Cloudinary
     CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "dcn5d4wbo")
     CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "233547317788382")

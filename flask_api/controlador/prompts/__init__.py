@@ -25,16 +25,16 @@ def build_prompt_v3(attr: dict) -> str:
 
 
 def descripcion_es_v3(attr: dict) -> str:
-    diseno = attr.get("diseno", "solid").lower()
+    diseno = attr.get("diseno", "solido").lower()
     mapping = {
-        "geometric": descripcion_geometrico_es,
-        "degraded": descripcion_degradado_es,
-        "abstract": descripcion_abstracto_es,
-        "stripes": descripcion_rayas_es,
-        "camouflage": descripcion_camuflaje_es,
-        "two_tones": descripcion_dos_tonos_es,
-        "solid": descripcion_solido_es,
-        "full_design": descripcion_personalizado_es,
+        "geometrico": descripcion_geometrico_es,
+        "degradado": descripcion_degradado_es,
+        "abstracto": descripcion_abstracto_es,
+        "rayas": descripcion_rayas_es,
+        "camuflaje": descripcion_camuflaje_es,
+        "dos_tonos": descripcion_dos_tonos_es,
+        "solido": descripcion_solido_es,
+        "personalizado": descripcion_personalizado_es,
             }
     builder = mapping.get(diseno, descripcion_degradado_es)
     return builder(attr)

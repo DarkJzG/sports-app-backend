@@ -54,8 +54,11 @@ from flask_api.rutas.ruta_pedido_ficha import ruta_pedido_ficha
 
 from flask_api.rutas.ruta_camiseta_gemini_v3 import ruta_camiseta_gemini_v3
 from flask_api.rutas.ruta_chompa_ia_v1 import ruta_chompa_ia_v1
-
-
+from flask_api.rutas.ruta_pantalon_ia_v1 import ruta_pantalon_ia_v1
+from flask_api.rutas.ruta_conjunto_externo_ia_v1 import ruta_conjunto_externo_ia_v1
+from flask_api.rutas.ruta_pantaloneta_ia_v1 import ruta_pantaloneta_ia_v1
+from flask_api.rutas.ruta_prompts import ruta_prompts
+from flask_api.rutas.ruta_prendas_huggingface import ruta_prendas_hf
 
 
 app = Flask(__name__)
@@ -149,6 +152,12 @@ app.register_blueprint(ruta_pedido_ficha)
 
 app.register_blueprint(ruta_camiseta_gemini_v3)
 app.register_blueprint(ruta_chompa_ia_v1)
+app.register_blueprint(ruta_pantalon_ia_v1)
+app.register_blueprint(ruta_conjunto_externo_ia_v1)
+app.register_blueprint(ruta_pantaloneta_ia_v1)
+app.register_blueprint(ruta_prompts)
+
+app.register_blueprint(ruta_prendas_hf)
 
 @app.route("/")
 def home():
