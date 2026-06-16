@@ -33,6 +33,7 @@ def agregar_al_carrito(data):
             "precio": precio,
             "imagen_url": data.get("imagen_url"),
             "ficha_id": data.get("ficha_id"),
+            "ficha_pdf_url": data.get("ficha_pdf_url"),
             "estado": data.get("estado", "pendiente"),
         }
 

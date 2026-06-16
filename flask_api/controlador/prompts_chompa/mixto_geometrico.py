@@ -9,9 +9,9 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
     
     try:
         # Datos estructurales
-        tipo_chompa = attr.get("tipoChompa", "hoodie")
-        capucha = attr.get("capucha", "yes")
-        bolsillos = attr.get("bolsillos", "kangaroo")
+        tipo_chompa = attr.get("tipoChompa", "hoodie")      # "hoodie" | "jacket"
+        capucha = attr.get("capucha", "Yeah")               # "Yeah" | "No"
+        bolsillos = attr.get("bolsillos", "kangaroo")       # "kangaroo" | "sides" | "none"
         tela = attr.get("tela", "polyester")
         genero = attr.get("genero", "unisex")
         
@@ -23,17 +23,30 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
         figura_geometrica = attr.get("figuraGeometrica", "triangles")
         colores_geometrico = attr.get("coloresGeometrico", [])
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "jacket":
-            garment_type = "zip-up sports jacket"
+            if capucha == "Yeah":
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "Yeah" else "pullover sweatshirt"
+            if capucha == "Yeah":
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "Yeah" else "without hood"
-        
+        # === Bolsillos ===
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "sides":
+        elif bolsillos in ["sides", "laterales"]:
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -43,25 +56,31 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción del área
+        # === Descripción del área ===
         if area_diseno == "chest_shoulders":
-            area_desc = "chest, shoulders, and hood area"
+            if has_hood:
+                area_desc = "chest, shoulders and hood area"
+            else:
+                area_desc = "chest and shoulders area, no hood"
             solid_desc = f"{color_base_mixto} solid color on lower body and sleeves"
         else:
             area_desc = "main body and lower panels"
             solid_desc = f"{color_base_mixto} solid color on shoulders and upper chest"
         
-        # Descripción de colores
+        # === Descripción de colores ===
         num_colores = len(colores_geometrico)
         if num_colores >= 3:
             color_desc = (
                 f"base color {colores_geometrico[0]}, "
                 f"primary {figura_geometrica} shapes in {colores_geometrico[1]}, "
-                f"and subtle accent fragments in {colores_geometrico[2]}"
-                f"the {figura_geometrica} large bold geometric figures clearly visible, minimal spacing between shapes for compact coverage fragmented, interlocking shapes producing a dynamic shattered effect"
+                f"subtle accent fragments in {colores_geometrico[2]}"
             )
             if num_colores >= 4:
                 color_desc += f" and {colores_geometrico[3]}"
+            color_desc += (
+                ", large bold geometric figures clearly visible, minimal spacing between shapes "
+                "for compact coverage, fragmented interlocking shapes for a dynamic shattered effect"
+            )
         else:
             color_desc = f"multi-color {figura_geometrica} pattern"
         
@@ -71,6 +90,10 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
         )
         
         design_desc = f"Mixed design: {solid_desc}, {geometric_desc}, modern athletic style."
+        
+        # Refuerzo si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         context = (
             "displayed on an invisible mannequin, perfect studio lighting, catalog style, "
@@ -87,6 +110,7 @@ def build_prompt_mixto_geometrico(attr: Dict) -> str:
     except Exception as e:
         print("❌ Error en build_prompt_mixto_geometrico:", e)
         raise
+
 
 
 def descripcion_mixto_geometrico_es(attr: Dict) -> str:

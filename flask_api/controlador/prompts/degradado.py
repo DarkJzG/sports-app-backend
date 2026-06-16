@@ -10,23 +10,19 @@ def build_prompt_degradado(attr: Dict) -> str:
         colores = attr.get("colores", [])
         num_colores = len(colores)
 
-        # ===============================
-        # 🧩 1) Base descriptiva de prenda
-        # ===============================
+        # 1. Atributos que selecciona el usuario
         genero = attr.get("genero", "")
         cuello = attr.get("cuello", "")
         manga = attr.get("manga", "")
         tela = attr.get("tela", "")
         garment = f"high-end photorealistic sportswear t-shirt mockup for {genero}, with {cuello} neck and {manga} sleeves, made of {tela} fabric"
 
-        # ===============================
-        # 🧩 2) Construcción por número de colores
-        # ===============================
+        # 2. Construcción por número de colores
         if num_colores == 2:
             grad_desc = (
                 f"The entire t-shirt, including sleeves and collar, has a full gradient design "
                 f"The base color {colores[0]} covers the whole garment, and the gradient is a full transition {tipo} "
-                f"from {colores[0]} to {colores[1]} across the entire surface."
+                f"from {colores[0]} to {colores[1]} across the entire surface"
             )
         elif num_colores == 3:
             grad_desc = (
@@ -38,17 +34,15 @@ def build_prompt_degradado(attr: Dict) -> str:
             grad_desc = (
                 f"The entire t-shirt, including sleeves and collar, has a full gradient design "
                 f"The base color {colores[0]} covers the whole garment, and the gradient is a full transition {tipo} "
-                f"from {colores[0]} to {colores[1]}, {colores[2]}, {colores[3]} and {colores[4]}."
+                f"from {colores[0]} to {colores[1]}, {colores[2]}, {colores[3]} and {colores[4]}"
             )
         else:
             grad_desc = (
                 f"The entire t-shirt, including sleeves and collar, features a soft {tipo} gradient, "
-                f"starting from {colores[0]} (base color covering the whole shirt) blending into the secondary tones."
+                f"starting from {colores[0]} (base color covering the whole shirt) blending into the secondary tones"
             )
 
-        # ===============================
-    # 🧩 3) Contexto visual base
-        # ===============================
+        # 3. Contexto visual 
         context = (
             "uniform color coverage, no neutral or gray areas, gradient applied consistently to torso, sleeves and collar,"
             "displayed on an invisible mannequin,"
@@ -57,9 +51,7 @@ def build_prompt_degradado(attr: Dict) -> str:
             "no logos, no text, hyper-detailed textile texture."
         )
 
-        # ===============================
-        # 🧩 4) Prompt final
-        # ===============================
+        # 4. Prompt final
         prompt = f"{garment}, {grad_desc}, {context}"
 
         print("🟣 build_prompt_degradado: OK")
@@ -80,7 +72,7 @@ def descripcion_degradado_es(attr: Dict) -> str:
     colores_es = [TRADUCCIONES.get(c, c) for c in colores]
     tipo_es = TRADUCCIONES.get(tipo, tipo)
     genero_es = TRADUCCIONES.get(genero, genero)
-    base = f"Camiseta deportiva para {genero_es} con patron degradado {tipo_es} "
+    base = f"Camiseta deportiva para {genero_es.lower()} con patron degradado {tipo_es}"
 
     if num_colores == 2:
         base += f" con colores {colores_es[0]} y {colores_es[1]}"

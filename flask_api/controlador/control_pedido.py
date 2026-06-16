@@ -1,12 +1,15 @@
 from flask import jsonify, current_app
+import io
+import cloudinary
+import logging
 from bson import ObjectId
 from flask_api.modelo.modelo_pedido import (
-    _now_utc, 
-    build_pedido_doc, 
-    insert_pedido, 
-    find_pedidos_by_user, 
+    _now_utc,
+    build_pedido_doc,
+    insert_pedido,
+    find_pedidos_by_user,
     find_all_pedidos,
-    update_pedido_status, 
+    update_pedido_status,
     ESTADOS_PEDIDO,
     ESTADOS_PAGO,
     _serialize,
@@ -16,8 +19,84 @@ from flask_api.modelo.modelo_pedido import (
     calcular_info_pago
 )
 from flask_api.modelo.modelo_usuario import get_users_collection
+from flask_api.controlador.control_ficha_tecnica import construir_ficha_tecnica_detallada
+from flask_api.controlador.control_pedido_ficha import generar_ficha_tecnica_pedido
+from flask_api.controlador.control_proforma import generar_pdf_proforma
+from flask_api.modelo.modelo_ficha_tecnica import guardar_ficha, get_fichas_collection
+from flask_api.modelo.modelo_3d_prenda import get_prendas3d_collection
+
+log = logging.getLogger(__name__)
+
+FICHA_URL_KEYS = [
+    "ficha_pdf_url",
+    "ficha_tecnica_url",
+    "ficha_tecnica_pdf",
+    "fichaPdfUrl",
+    "url_pdf",
+    "pdf_url",
+]
+
+def _extraer_ficha_url(*docs):
+    """
+    Intenta encontrar una URL de ficha técnica en uno o varios documentos
+    (diseño IA, prenda 3D, etc.) usando una lista de posibles nombres de campo.
+    """
+    for doc in docs:
+        if not doc:
+            continue
+        for k in FICHA_URL_KEYS:
+            val = doc.get(k)
+            if val:
+                return val
+    return None
 
 
+def _build_item_pedido_desde_carrito(item_carrito, diseno_ia=None, prenda_3d=None):
+    """
+    Construye la estructura del item que se guardará en el pedido a partir del item del carrito
+    y la info de la prenda IA / 3D. Unifica el campo ficha_pdf_url.
+    """
+    cantidad = int(item_carrito.get("cantidad", 1) or 1)
+    precio_unit = float(
+        item_carrito.get("precioUnitario")
+        or item_carrito.get("precio_unitario")
+        or item_carrito.get("precio")
+        or 0
+    )
+
+    base = {
+        "producto_id": str(item_carrito.get("producto_id") or ""),
+        "tipo": item_carrito.get("tipo") or "normal",  # ia / 3d / etc.
+        "nombre": item_carrito.get("nombre")
+                  or (diseno_ia or {}).get("nombre")
+                  or (prenda_3d or {}).get("modelo")
+                  or "Producto",
+        "talla": item_carrito.get("talla") or "N/A",
+        "cantidad": cantidad,
+        "precioUnitario": precio_unit,
+        "precioTotal": float(item_carrito.get("precioTotal") or precio_unit * cantidad),
+        "imagen": item_carrito.get("imagen")
+                  or (diseno_ia or {}).get("imagen")
+                  or (prenda_3d or {}).get("renders", {}).get("render_frente"),
+    }
+
+    # IDs de ficha (para IA o 3D)
+    if diseno_ia and diseno_ia.get("_id"):
+        base["ficha_id"] = str(diseno_ia.get("ficha_id") or diseno_ia["_id"])
+    if prenda_3d and prenda_3d.get("_id"):
+        base["prenda3d_id"] = str(prenda_3d["_id"])
+
+    # 🔗 URL unificada de ficha técnica
+    ficha_url = _extraer_ficha_url(diseno_ia, prenda_3d, item_carrito)
+    if ficha_url:
+        base["ficha_pdf_url"] = ficha_url
+        log.info(
+            "📎 Ficha técnica asociada al item %s: %s",
+            base["nombre"],
+            ficha_url,
+        )
+
+    return base
 
 def _validar_payload_confirmacion(data: dict):
     """
@@ -52,7 +131,7 @@ def _validar_payload_confirmacion(data: dict):
         return "La dirección de envío debe ser un objeto"
         
     campos_direccion = ["tipoEnvio", "nombre", "direccion_principal", "ciudad", 
-                       "provincia", "pais", "telefono", "codigo_postal"]
+                        "provincia", "pais", "telefono", "codigo_postal"]
     
     if data["direccionEnvio"]["tipoEnvio"] == "domicilio":
         for campo in campos_direccion:
@@ -130,9 +209,11 @@ def aprobar_pago(pedido_id: str, pago_id: str):
                 "evento": "pago_aprobado",
                 "estadoPago": nuevo_estado_pago,
                 "ts": _now_utc(),
-                "nota": f"Pago de ${float(pago_encontrado['monto']):.2f} aprobado. " +
-                    f"Total pagado: ${totales['total_pagado']:.2f} de ${totales['total_pedido']:.2f} " +
+                "nota": (
+                    f"Pago de ${float(pago_encontrado['monto']):.2f} aprobado. "
+                    f"Total pagado: ${totales['total_pagado']:.2f} de ${totales['total_pedido']:.2f} "
                     f"({totales['porcentaje_pagado']}%)"
+                )
             }
         }
     }
@@ -185,7 +266,10 @@ def rechazar_pago(pedido_id: str, pago_id: str, motivo: str = None):
                 "timeline": {
                     "evento": "pago_rechazado",
                     "ts": _now_utc(),
-                    "nota": f"Pago de ${float(pago_encontrado['monto']):.2f} rechazado. Motivo: {motivo or 'No especificado'}"
+                    "nota": (
+                        f"Pago de ${float(pago_encontrado['monto']):.2f} rechazado. "
+                        f"Motivo: {motivo or 'No especificado'}"
+                    )
                 }
             }
         }
@@ -199,6 +283,7 @@ def rechazar_pago(pedido_id: str, pago_id: str, motivo: str = None):
         "msg": "Pago rechazado",
         "pedido": _serialize(pedido_actualizado)
     }), 200
+
 
 def registrar_pago(pedido_id: str, data: dict):
     """
@@ -220,21 +305,18 @@ def registrar_pago(pedido_id: str, data: dict):
         if monto <= 0:
             return jsonify({"ok": False, "msg": "Monto inválido"}), 400
 
-        # ✅ CALCULAR TOTALES PRIMERO (antes de usar la variable)
+        # ✅ CALCULAR TOTALES PRIMERO
         totales = calcular_totales_pago(pedido)
         
-        # ✅ LOGGING TEMPORAL PARA DEBUG (después de calcular totales)
-        current_app.logger.info(f"=== DEBUG PAGO ===")
+        current_app.logger.info("=== DEBUG PAGO ===")
         current_app.logger.info(f"Monto recibido: {data['monto']} (tipo: {type(data['monto'])})")
         current_app.logger.info(f"Monto parseado: {monto}")
         current_app.logger.info(f"Saldo pendiente: {totales['saldo_pendiente']}")
         current_app.logger.info(f"Diferencia: {monto - totales['saldo_pendiente']}")
-        
-        # ✅ AGREGAR TOLERANCIA DE 0.02 PARA REDONDEO
+
         tolerancia = 0.02
         diferencia = monto - totales["saldo_pendiente"]
         
-        # Si la diferencia es muy pequeña, ajustar al saldo pendiente exacto
         if 0 < diferencia <= tolerancia:
             current_app.logger.info(
                 f"Ajustando monto de {monto} a {totales['saldo_pendiente']} "
@@ -242,42 +324,45 @@ def registrar_pago(pedido_id: str, data: dict):
             )
             monto = float(totales["saldo_pendiente"])
         
-        # Validar que no exceda significativamente
         if diferencia > tolerancia:
             return jsonify({
-                "ok": False, 
-                "msg": f"El monto (${monto:.2f}) excede el saldo pendiente (${totales['saldo_pendiente']:.2f})"
+                "ok": False,
+                "msg": (
+                    f"El monto (${monto:.2f}) excede el saldo pendiente "
+                    f"(${totales['saldo_pendiente']:.2f})"
+                )
             }), 400
 
-        # Crear objeto de pago (PENDIENTE de aprobación)
         nuevo_pago = {
-            "monto": round(monto, 2),  # ✅ Redondear a 2 decimales
+            "monto": round(monto, 2),
             "fecha": _now_utc(),
             "referencia": data["referencia"],
             "comprobante": data.get("imagenComprobante", ""),
-            "tipo": "parcial",  # Pagos adicionales siempre son parciales
-            "estado": "pendiente",  # ✅ Requiere aprobación
-            "nota": data.get("nota", "Pago adicional registrado - Pendiente de aprobación")
+            "tipo": "parcial",
+            "estado": "pendiente",
+            "nota": data.get(
+                "nota",
+                "Pago adicional registrado - Pendiente de aprobación"
+            )
         }
 
-        # Actualizar el pedido
         update_data = {
             "$push": {
                 "pagos": nuevo_pago,
                 "timeline": {
                     "evento": "pago_registrado",
                     "ts": _now_utc(),
-                    "nota": f"Nuevo pago de ${monto:.2f} registrado (Ref: {data['referencia']}) - Pendiente de aprobación"
+                    "nota": (
+                        f"Nuevo pago de ${monto:.2f} registrado "
+                        f"(Ref: {data['referencia']}) - Pendiente de aprobación"
+                    )
                 }
             },
-            "$set": {
-                "updatedAt": _now_utc()
-            }
+            "$set": {"updatedAt": _now_utc()}
         }
 
         col.update_one({"_id": ObjectId(pedido_id)}, update_data)
 
-        # Obtener el pedido actualizado
         pedido_actualizado = col.find_one({"_id": ObjectId(pedido_id)})
         
         current_app.logger.info(f"✅ Pago registrado exitosamente: ${monto:.2f}")
@@ -307,68 +392,84 @@ def validar_transicion_estado(pedido: dict, nuevo_estado: str) -> dict:
     estado_pago = pedido.get("estadoPago", "pago_pendiente")
     totales = calcular_totales_pago(pedido)
     
-    # Verificar si hay pagos pendientes
     pagos_pendientes = [p for p in pedido.get("pagos", []) if p.get("estado") == "pendiente"]
     hay_pagos_pendientes = len(pagos_pendientes) > 0
     
-    # ✅ Regla 1: en_revision → en_produccion
     if estado_actual == "en_revision" and nuevo_estado == "en_produccion":
         if hay_pagos_pendientes:
             return {
                 "valido": False,
-                "mensaje": "⚠️ Debes aprobar o rechazar todos los comprobantes de pago pendientes antes de iniciar producción."
+                "mensaje": (
+                    "⚠️ Debes aprobar o rechazar todos los comprobantes de pago "
+                    "pendientes antes de iniciar producción."
+                )
             }
         
         if estado_pago == "pago_pendiente":
             return {
                 "valido": False,
-                "mensaje": f"⚠️ Se requiere al menos el 50% del pago aprobado para iniciar producción. Actual: {totales['porcentaje_pagado']}%"
+                "mensaje": (
+                    "⚠️ Se requiere al menos el 50% del pago aprobado para "
+                    f"iniciar producción. Actual: {totales['porcentaje_pagado']}%"
+                )
             }
         
         if estado_pago == "pago_parcial":
             return {
                 "valido": True,
-                "advertencia": f"⚠️ IMPORTANTE: Iniciando producción con pago parcial ({totales['porcentaje_pagado']}%). " +
-                              f"Saldo pendiente: ${totales['saldo_pendiente']:.2f}"
+                "advertencia": (
+                    "⚠️ IMPORTANTE: Iniciando producción con pago parcial "
+                    f"({totales['porcentaje_pagado']}%). "
+                    f"Saldo pendiente: ${totales['saldo_pendiente']:.2f}"
+                )
             }
         
         return {"valido": True}
     
-    # ✅ Regla 2: en_produccion → listo
     if estado_actual == "en_produccion" and nuevo_estado == "listo":
         if hay_pagos_pendientes:
             return {
                 "valido": True,
-                "advertencia": "⚠️ Hay comprobantes de pago pendientes de aprobación. Revísalos para actualizar el estado de pago."
+                "advertencia": (
+                    "⚠️ Hay comprobantes de pago pendientes de aprobación. "
+                    "Revísalos para actualizar el estado de pago."
+                )
             }
         
         if estado_pago != "pago_completo":
             return {
                 "valido": True,
-                "advertencia": f"⚠️ El pedido está listo pero el pago no está completo ({totales['porcentaje_pagado']}%). " +
-                              f"Saldo pendiente: ${totales['saldo_pendiente']:.2f}"
+                "advertencia": (
+                    "⚠️ El pedido está listo pero el pago no está completo "
+                    f"({totales['porcentaje_pagado']}%). "
+                    f"Saldo pendiente: ${totales['saldo_pendiente']:.2f}"
+                )
             }
         
         return {"valido": True}
     
-    # ✅ Regla 3: listo → enviado/retiro
     if estado_actual == "listo" and nuevo_estado in ["enviado", "retiro"]:
         if hay_pagos_pendientes:
             return {
                 "valido": False,
-                "mensaje": "❌ No se puede enviar/entregar el pedido. Hay comprobantes de pago pendientes de aprobación."
+                "mensaje": (
+                    "❌ No se puede enviar/entregar el pedido. Hay comprobantes "
+                    "de pago pendientes de aprobación."
+                )
             }
         
         if estado_pago != "pago_completo":
             return {
                 "valido": False,
-                "mensaje": f"❌ No se puede enviar/entregar el pedido sin pago completo. " +
-                          f"Pagado: {totales['porcentaje_pagado']}%, falta: ${totales['saldo_pendiente']:.2f}"
+                "mensaje": (
+                    "❌ No se puede enviar/entregar el pedido sin pago completo. "
+                    f"Pagado: {totales['porcentaje_pagado']}%, "
+                    f"falta: ${totales['saldo_pendiente']:.2f}"
+                )
             }
         
         return {"valido": True}
     
-    # ✅ Regla 4: enviado/retiro → entregado
     if estado_actual in ["enviado", "retiro"] and nuevo_estado == "entregado":
         if estado_pago != "pago_completo":
             return {
@@ -378,12 +479,11 @@ def validar_transicion_estado(pedido: dict, nuevo_estado: str) -> dict:
         
         return {"valido": True}
     
-    # ✅ Regla 5: Cancelación
     if nuevo_estado == "cancelado":
         return {"valido": True}
     
-    # Por defecto permitir (para estados no validados explícitamente)
     return {"valido": True}
+
 
 def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = None, fechaEntrega: str = None):
     """
@@ -402,10 +502,8 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
         {"_id": ObjectId(pedido_id)},
         {"$set": {"infoPago": infoPago}}
     )
-    # Refrescar el pedido con los datos actualizados
     pedido = col.find_one({"_id": ObjectId(pedido_id)})
     
-    # ✅ VALIDACIÓN ESPECIAL: No se puede cambiar a "listo" sin pago completo
     if nuevo_estado == "listo":
         infoPago = pedido.get("infoPago", {})
         estado_pago = infoPago.get("estado_pago", "")
@@ -416,19 +514,19 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
             
             return jsonify({
                 "ok": False,
-                "msg": f"❌ No se puede marcar como 'Listo'. El pago no está completo.\n\n"
-                       f"📊 Estado actual: {porcentaje}% pagado\n"
-                       f"💰 Saldo pendiente: ${saldo:.2f}\n\n"
-                       f"Por favor, espera a que el cliente complete el pago al 100%."
+                "msg": (
+                    "❌ No se puede marcar como 'Listo'. El pago no está completo.\n\n"
+                    f"📊 Estado actual: {porcentaje}% pagado\n"
+                    f"💰 Saldo pendiente: ${saldo:.2f}\n\n"
+                    "Por favor, espera a que el cliente complete el pago al 100%."
+                )
             }), 400
     
-    # Validar transición
     validacion = validar_transicion_estado(pedido, nuevo_estado)
     
     if not validacion["valido"]:
         return jsonify({"ok": False, "msg": validacion["mensaje"]}), 400
     
-    # ✅ GENERAR FACTURA AUTOMÁTICAMENTE al pasar a "listo"
     factura_url = None
     if pedido["estado"] == "en_produccion" and nuevo_estado == "listo":
         infoPago = pedido.get("infoPago", {})
@@ -443,8 +541,7 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
                 current_app.logger.info(f"✅ Factura generada: {factura_url}")
             else:
                 current_app.logger.warning(f"⚠️ No se pudo generar factura: {resultado}")
-                # No fallar el cambio de estado, solo advertir
-    
+
     try:
         ok = update_pedido_status(pedido_id, nuevo_estado, nota_admin, fechaEntrega)
     except ValueError as e:
@@ -453,7 +550,6 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
     if not ok:
         return jsonify({"ok": False, "msg": "Error al actualizar estado"}), 404
 
-    # ✅ Si se generó factura, guardarla en el pedido
     if factura_url:
         col.update_one(
             {"_id": ObjectId(pedido_id)},
@@ -467,77 +563,130 @@ def cambiar_estado_pedido(pedido_id: str, nuevo_estado: str, nota_admin: str = N
 
     response = {"ok": True, "msg": "Estado actualizado correctamente"}
     
-    # Incluir advertencia si existe
     if validacion.get("advertencia"):
         response["advertencia"] = validacion["advertencia"]
     
-    # ✅ Incluir URL de factura si se generó
     if factura_url:
         response["facturaUrl"] = factura_url
         response["msg"] += " ✅ Factura generada exitosamente."
     
     return jsonify(response), 200
 
-
 def confirmar_pedido_transferencia(usuario_id: str, data: dict, imagen_url: str):
     """
     Confirma un pedido con transferencia bancaria.
     El pago queda en estado pendiente hasta que el admin lo apruebe.
+    Además:
+    - Genera fichas técnicas por ítem IA/3D si no existen.
+    - Genera ficha técnica consolidada del pedido.
+    - Genera PDF de PROFORMA con detalle de productos, tallas, cantidades,
+      totales y enlace a ficha técnica (si la hay).
     """
     try:
         col = get_pedidos_collection()
         
-        # Parsear los datos del pedido
         pedido_data = data
         
-        # Validar campos requeridos
         required_fields = ['items', 'direccionEnvio', 'metodoPago', 'costos', 'referenciaPago']
         for field in required_fields:
             if field not in pedido_data:
                 return jsonify({"ok": False, "msg": f"Falta el campo requerido: {field}"}), 400
         
-        # Obtener datos
         items = pedido_data['items']
         direccion_envio = pedido_data['direccionEnvio']
         metodo_pago = pedido_data['metodoPago']
         tipo_pago = pedido_data.get('tipoPago', 'completo')
-        tipo_entrega = pedido_data.get('tipoEntrega', 'domicilio')  # ✅ IMPORTANTE
+        tipo_entrega = pedido_data.get('tipoEntrega', 'domicilio')
         referencia_pago = pedido_data['referenciaPago']
         costos = pedido_data['costos']
         monto_pago = pedido_data.get('montoPago', costos['total'])
         
-        # Validar que haya items
         if not items or len(items) == 0:
             return jsonify({"ok": False, "msg": "El pedido debe tener al menos un producto"}), 400
 
-        # Obtener información del usuario
         usuario_col = get_users_collection()
         usuario = usuario_col.find_one({"_id": ObjectId(usuario_id)})
         
         if not usuario:
             return jsonify({"ok": False, "msg": "Usuario no encontrado"}), 404
         
-        # ✅ Preparar el pago inicial (siempre pendiente de aprobación)
+        # ✅ ENRIQUECER ITEMS CON FICHAS TÉCNICAS (IA / 3D, etc.)
+        items_con_ficha = []
+        for item in items:
+            tipo_item = item.get("tipo")
+
+            # Solo generamos ficha si aún no tiene ficha_id
+            if tipo_item in ["ia_prenda", "prenda3d"] and not item.get("ficha_id"):
+                atributos = item.get("atributos_es") or item.get("atributos") or {}
+                categoria = (
+                    item.get("categoria_prd")
+                    or atributos.get("categoria_prd")
+                    or "prenda"
+                )
+
+                image_urls = {
+                    "delantera": item.get("imagen_frente") or item.get("imagen"),
+                    "posterior": item.get("imagen_espalda"),
+                    "acabado": item.get("imagen") or item.get("imagen_acabado"),
+                }
+
+                ficha = construir_ficha_tecnica_detallada(
+                    categoria_prd=categoria,
+                    atributos=atributos,
+                    image_urls=image_urls
+                )
+
+                if item.get("costo"):
+                    ficha["costo"] = item["costo"]
+                if item.get("talla"):
+                    ficha["talla"] = item["talla"]
+
+                ficha_doc = {
+                    "user_id": usuario_id,
+                    "prenda_id": item.get("productId") or item.get("prenda3d_id"),
+                    "pedido_preview": {
+                        "nombre": item.get("nombre"),
+                        "talla": item.get("talla"),
+                        "cantidad": item.get("cantidad"),
+                    },
+                    "ficha": ficha,
+                }
+
+                try:
+                    ficha_id = guardar_ficha(ficha_doc)
+                    item["ficha_id"] = ficha_id
+                    current_app.logger.info(
+                        f"🧾 Ficha técnica guardada para item con productId={item.get('productId')}, ficha_id={ficha_id}"
+                    )
+                except Exception as e:
+                    current_app.logger.warning(
+                        f"⚠️ No se pudo guardar ficha técnica para item {item.get('productId')}: {e}"
+                    )
+
+            items_con_ficha.append(item)
+
+        items = items_con_ficha
+
+        # 🧾 Pago inicial registrado como pendiente
         pago_inicial = {
             "monto": float(monto_pago),
             "fecha": _now_utc(),
             "referencia": referencia_pago,
             "comprobante": imagen_url,
             "tipo": "anticipo" if tipo_pago == "anticipo" else "completo",
-            "estado": "pendiente",  # ✅ Siempre pendiente hasta que admin apruebe
-            "nota": f"Pago {'parcial (50%)' if tipo_pago == 'anticipo' else 'completo'} - Transferencia bancaria - Pendiente de aprobación"
+            "estado": "pendiente",
+            "nota": (
+                f"Pago {'parcial (50%)' if tipo_pago == 'anticipo' else 'completo'} "
+                " - Transferencia bancaria - Pendiente de aprobación"
+            )
         }
         
-        # ✅ Calcular información de pago
         total_pedido = float(costos['total'])
-        total_pagado = 0  # Aún no se ha aprobado ningún pago
+        total_pagado = 0
         saldo_pendiente = total_pedido
         porcentaje_pagado = 0
-        
-        # ✅ El estado de pago inicial es siempre pendiente
         estado_pago_inicial = "pago_pendiente"
         
-        # ✅ Construir el documento del pedido
         nuevo_pedido = {
             "userId": ObjectId(usuario_id),
             "clienteNombre": f"{usuario.get('nombre', '')} {usuario.get('apellido', '')}".strip(),
@@ -546,7 +695,7 @@ def confirmar_pedido_transferencia(usuario_id: str, data: dict, imagen_url: str)
             "direccionEnvio": direccion_envio,
             "metodoPago": metodo_pago,
             "tipoPago": tipo_pago,
-            "tipoEntrega": tipo_entrega,  # ✅ Guardar tipo de entrega
+            "tipoEntrega": tipo_entrega,
             "costos": {
                 "subtotal": float(costos['subtotal']),
                 "envio": float(costos['envio']),
@@ -561,42 +710,178 @@ def confirmar_pedido_transferencia(usuario_id: str, data: dict, imagen_url: str)
                 "porcentaje_pagado": porcentaje_pagado,
                 "estado_pago": estado_pago_inicial
             },
-            "estado": "en_revision",  # ✅ Estado inicial: en revisión
+            "estado": "en_revision",
             "timeline": [
                 {
                     "evento": "pedido_creado",
                     "ts": _now_utc(),
-                    "nota": f"Pedido creado con pago {'parcial (50%)' if tipo_pago == 'anticipo' else 'completo'} pendiente de aprobación"
+                    "nota": (
+                        "Pedido creado con pago "
+                        f"{'parcial (50%)' if tipo_pago == 'anticipo' else 'completo'} "
+                        "pendiente de aprobación"
+                    )
                 }
             ],
             "createdAt": _now_utc(),
             "updatedAt": _now_utc()
         }
-        
-        # Insertar el pedido en la base de datos
+
         result = col.insert_one(nuevo_pedido)
         
         if not result.inserted_id:
             return jsonify({"ok": False, "msg": "Error al crear el pedido"}), 500
+
+        pedido_oid = result.inserted_id
+        pedido_id = str(pedido_oid)
+
+        # 📥 Recargar pedido desde BD (ya con todo lo que se guardó)
+        pedido_insertado = col.find_one({"_id": pedido_oid})
+
+        # ✅ Generar PROFORMA PDF
+        proforma_url = None
+        try:
+            fichas_col = get_fichas_collection()
+            prendas3d_col = None  # la cargamos solo si hace falta
+            items_pdf = []
+
+            for it in pedido_insertado.get("items", []):
+                it_copy = dict(it)
+
+                ficha_doc = None
+                ficha_url = None
+
+                # 0️⃣ Si el ítem YA trae una URL directa, la respetamos
+                ficha_url = _extraer_ficha_url(it_copy)
+
+                # 1️⃣ Si tiene ficha_id, buscamos en la colección genérica de fichas
+                if not ficha_url:
+                    ficha_id = it_copy.get("ficha_id")
+                    if ficha_id:
+                        try:
+                            ficha_doc = fichas_col.find_one({"_id": ObjectId(ficha_id)})
+                        except Exception as e:
+                            current_app.logger.warning(
+                                f"⚠️ Error buscando ficha por _id={ficha_id}: {e}"
+                            )
+
+                # 2️⃣ Si no hay ficha_doc todavía, buscamos por prenda_id en fichas genéricas
+                if not ficha_url and not ficha_doc:
+                    prenda_id = (
+                        it_copy.get("productId")
+                        or it_copy.get("prenda3d_id")
+                        or it_copy.get("prenda_id")
+                    )
+                    if prenda_id:
+                        try:
+                            ficha_doc = fichas_col.find_one({"prenda_id": prenda_id})
+                        except Exception as e:
+                            current_app.logger.warning(
+                                f"⚠️ Error buscando ficha por prenda_id={prenda_id}: {e}"
+                            )
+
+                # 3️⃣ Si tenemos ficha_doc, intentamos extraer URL de ahí
+                if not ficha_url and ficha_doc:
+                    ficha_url = _extraer_ficha_url(ficha_doc)
+
+                # 4️⃣ Si sigue sin URL, intentamos buscar en prendas_3d por id o modelo
+                if not ficha_url:
+                    try:
+                        if prendas3d_col is None:
+                            prendas3d_col = get_prendas3d_collection()
+
+                        prenda3d_doc = None
+
+                        # Candidatos posibles de identificador / modelo
+                        candidatos = []
+
+                        for key in ["productId", "prenda3d_id", "productoId", "modelo", "codigo", "sku"]:
+                            val = it_copy.get(key)
+                            if val:
+                                candidatos.append(val)
+
+                        # A veces el nombre ES el modelo: "CH-1765..." / "PT-..."
+                        nombre_item = it_copy.get("nombre")
+                        if isinstance(nombre_item, str) and "-" in nombre_item and len(nombre_item) <= 40:
+                            candidatos.append(nombre_item)
+
+                        for cand in candidatos:
+                            # Intentar como ObjectId
+                            try:
+                                prenda3d_doc = prendas3d_col.find_one({"_id": ObjectId(cand)})
+                            except Exception:
+                                # Si no es ObjectId, probamos como modelo
+                                prenda3d_doc = prendas3d_col.find_one({"modelo": cand})
+
+                            if prenda3d_doc:
+                                break
+
+                        if prenda3d_doc:
+                            ficha_url = _extraer_ficha_url(prenda3d_doc)
+
+                    except Exception as e:
+                        current_app.logger.warning(
+                            f"⚠️ Error buscando ficha 3D para item {it_copy.get('nombre')}: {e}"
+                        )
+
+                # 5️⃣ Guardar URL (o None) en el ítem para la columna "Ficha técnica"
+                it_copy["ficha_pdf_url"] = ficha_url or None
+                items_pdf.append(it_copy)
+
+            # Construir pedido para el PDF
+            pedido_para_pdf = dict(pedido_insertado)
+            pedido_para_pdf["items"] = items_pdf
+
+            empresa_doc = current_app.config.get("EMPRESA_DOC", {}) or {}
+            usuario_pdf = {
+                "nombre_completo": pedido_para_pdf.get("clienteNombre", ""),
+                "email": pedido_para_pdf.get("clienteCorreo", "")
+            }
+
+            pdf_bytes = generar_pdf_proforma(
+                pedido_para_pdf,
+                empresa_doc,
+                usuario_pdf
+            )
+
+            pdf_io = io.BytesIO(pdf_bytes)
+            upload = cloudinary.uploader.upload(
+                pdf_io,
+                folder="proformas",
+                public_id=f"proforma_{pedido_id}",
+                resource_type="raw",
+                format="pdf"
+            )
+            proforma_url = upload.get("secure_url")
+
+            if proforma_url:
+                col.update_one(
+                    {"_id": pedido_oid},
+                    {"$set": {"proformaUrl": proforma_url}}
+                )
+                current_app.logger.info(f"📄 Proforma generada para pedido {pedido_id}: {proforma_url}")
+
+        except Exception as e:
+            current_app.logger.warning(
+                f"⚠️ No se pudo generar/subir proforma para pedido {pedido_id}: {e}"
+            )
+
+        current_app.logger.info(f"Pedido creado exitosamente: {pedido_oid}")
         
-        # Obtener el pedido insertado
-        pedido_insertado = col.find_one({"_id": result.inserted_id})
-        
-        current_app.logger.info(f"Pedido creado exitosamente: {result.inserted_id}")
-        
+        pedido_insertado = col.find_one({"_id": pedido_oid})
+
         return jsonify({
             "ok": True,
             "msg": "Pedido creado exitosamente. Tu pago será revisado en las próximas 24-48 horas.",
             "pedido": _serialize(pedido_insertado),
-            "pedidoId": str(result.inserted_id)
+            "pedidoId": pedido_id,
+            "proformaUrl": proforma_url    # 👈 la proforma queda disponible para el frontend
         }), 201
-        
+
     except Exception as e:
         current_app.logger.error(f"Error al confirmar pedido: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({"ok": False, "msg": f"Error al procesar el pedido: {str(e)}"}), 500
-
 
 
 def mis_pedidos(user_id: str, page: int = 1, limit: int = 20):
@@ -608,6 +893,7 @@ def mis_pedidos(user_id: str, page: int = 1, limit: int = 20):
         "limit": limit,
         "pedidos": pedidos
     }), 200
+
 
 def listar_pedidos_admin(estado: str = None, q_user: str = None, page: int = 1, limit: int = 20):
     filt = {}

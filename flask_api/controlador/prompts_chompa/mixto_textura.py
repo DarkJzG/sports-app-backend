@@ -9,9 +9,9 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
     
     try:
         # Datos estructurales
-        tipo_chompa = attr.get("tipoChompa", "hoodie")
-        capucha = attr.get("capucha", "yes")
-        bolsillos = attr.get("bolsillos", "kangaroo")
+        tipo_chompa = attr.get("tipoChompa", "hoodie")      # "hoodie" | "chaqueta"
+        capucha = attr.get("capucha", "yes")                # "yes" | "no"
+        bolsillos = attr.get("bolsillos", "kangaroo")       # "kangaroo" | "laterales" | "none"
         tela = attr.get("tela", "polyester")
         genero = attr.get("genero", "unisex")
         
@@ -24,17 +24,30 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
         textura_personalizada = attr.get("texturaPersonalizada", "")
         colores_textura = attr.get("coloresTextura", [])
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "chaqueta":
-            garment_type = "zip-up sports jacket"
+            if capucha.lower() in ["yes", "sí", "si"]:
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "yes" else "pullover sweatshirt"
+            if capucha.lower() in ["yes", "sí", "si"]:
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "yes" else "without hood"
-        
-        if bolsillos == "kangaroo":
+        # === Bolsillos ===
+        if bolsillos.lower() == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "laterales":
+        elif bolsillos.lower() in ["laterales", "sides"]:
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -44,15 +57,18 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción del área
+        # === Descripción del área del diseño IA ===
         if area_diseno == "pecho_hombros":
-            area_desc = "chest, shoulders, and hood area"
+            if has_hood:
+                area_desc = "chest, shoulders and hood area"
+            else:
+                area_desc = "chest and shoulders area, no hood"
             solid_desc = f"{color_base_mixto} solid color on lower body and sleeves"
         else:
             area_desc = "main body and lower panels"
             solid_desc = f"{color_base_mixto} solid color on shoulders and upper chest"
         
-        # Descripción de la textura
+        # === Descripción de la textura ===
         if tipo_textura == "personalizado" and textura_personalizada:
             texture_desc = textura_personalizada
         elif tipo_textura == "moteado":
@@ -68,7 +84,7 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
         else:
             texture_desc = "abstract texture pattern"
         
-        # Descripción de colores
+        # === Descripción de colores de textura ===
         num_colores = len(colores_textura)
         if num_colores == 2:
             color_desc = f"{colores_textura[0]} base with {colores_textura[1]} texture"
@@ -80,6 +96,10 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
         texture_full_desc = f"{texture_desc} on {area_desc}, {color_desc}"
         
         design_desc = f"Mixed design: {solid_desc}, {texture_full_desc}, seamless integration."
+        
+        # Refuerzo explícito si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         context = (
             "displayed on an invisible mannequin, perfect studio lighting, catalog style, "
@@ -96,6 +116,7 @@ def build_prompt_mixto_textura(attr: Dict) -> str:
     except Exception as e:
         print("❌ Error en build_prompt_mixto_textura:", e)
         raise
+
 
 
 def descripcion_mixto_textura_es(attr: Dict) -> str:

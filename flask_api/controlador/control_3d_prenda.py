@@ -9,48 +9,34 @@ from flask_api.modelo.modelo_3d_prenda import guardar_prenda_3d, listar_prendas_
 from flask_api.controlador.control_ficha_tecnica import generar_ficha_tecnica_3d
 from flask_api.controlador.generar_plano_sublimacion import subir_plano_sublimacion
 import os
+from flask_api.controlador.control_prendas_huggingface import calcular_costo_prenda
 
 
 def calcular_costo_produccion_3d(data):
-    """
-    Cálculo simple basado en tela y diseño para estimar costo y precio final.
-    """
+
     tela = (data.get("tela") or "").lower()
-    design_id = (data.get("design_id") or "").lower()
+    categoria = (data.get("categoria") or data.get("categoria_prd") or "").lower()
 
-    if "algodon" in tela or "cotton" in tela:
-        costo_material = 3.0
-    elif "poliester" in tela or "polyester" in tela:
-        costo_material = 2.0
+    if "camiseta" in categoria:
+        tipo_prenda = "camiseta"
+    elif "pantaloneta" in categoria:
+        tipo_prenda = "pantaloneta"
+    elif "pantalon" in categoria and "pantaloneta" not in categoria:
+        tipo_prenda = "pantalon"
+    elif "chompa" in categoria or "buzo" in categoria:
+        tipo_prenda = "chompa"
     else:
-        costo_material = 2.5
+        # fallback: lo tratamos como camiseta
+        tipo_prenda = "camiseta"
 
-    # Ajuste por diseño: rayo, base, etc.
-    if design_id != "base":
-        costo_diseno = 3.0
-    else:
-        costo_diseno = 2.0
+    atributos = {"tela": tela}
+    costo = calcular_costo_prenda(atributos, tipo_prenda)
 
-    costo_mano_obra = 0.8
-    costo_insumos = 0.6
-
-    total = round(costo_material + costo_diseno + costo_mano_obra + costo_insumos, 2)
-    precio_venta = round(total * 1.5, 2)
-    precio_mayor = round(total * 1.2, 2)
-
-    return {
-        "material": costo_material,
-        "diseno": costo_diseno,
-        "mano_obra": costo_mano_obra,
-        "insumos": costo_insumos,
-        "total": total,
-        "precio_venta": precio_venta,
-        "precio_mayor": precio_mayor,
-    }
+    return costo
 
 
 def extraer_dataurl_png(data_url):
-    """Convierte un dataURL base64 (data:image/png;base64,...) en bytes binarios PNG."""
+
     if not data_url.startswith("data:image/png;base64,"):
         raise ValueError("Formato de imagen inválido para sublimación")
     return base64.b64decode(data_url.split(",")[1])
@@ -67,6 +53,9 @@ def obtener_diseno_detalle(prenda_id):
 def guardar_diseno_prenda_3d(data, archivo):
     print("🧾 Datos recibidos:", list(data.keys()))
     print("📦 Archivos recibidos:", list(request.files.keys()))
+
+    if not data.get("tela"):
+        data["tela"] = "Algodón"
 
     costo = calcular_costo_produccion_3d(data)
     data["costo"] = costo
@@ -90,8 +79,8 @@ def guardar_diseno_prenda_3d(data, archivo):
     if not data.get("user_id"):
         raise ValueError("Falta el user_id")
 
-    # ==============================
-    # 2️⃣ Limpieza de datos y tipos
+
+    # 2️ Limpieza de datos y tipos
     for campo in ["colors", "textures", "decals", "textDecals"]:
         if isinstance(data.get(campo), str):
             try:
@@ -119,16 +108,12 @@ def guardar_diseno_prenda_3d(data, archivo):
             d.pop("texture", None)
     data["decals"] = decals
 
-    # ==============================
-    # 3️⃣ Guardar diseño en MongoDB
-    # ==============================
+    # 3️ Guardar diseño en MongoDB
     prenda_id = guardar_prenda_3d(data)
     data["_id"] = prenda_id
     print(f"✅ Diseño guardado en MongoDB con ID {prenda_id}")
 
-    # ==============================
-    # 4️⃣ Generar ficha técnica PDF
-    # ==============================
+    # 4️ Generar ficha técnica PDF
     ficha_url = None
     try:
         pdf_bytes = generar_ficha_tecnica_3d(data)
@@ -145,31 +130,8 @@ def guardar_diseno_prenda_3d(data, archivo):
     except Exception as e:
         print("⚠️ Error generando ficha 3D:", e)
 
-    # ==============================
-    # 5️⃣ Generar y subir plano de sublimación 2D (desde máscara)
-    # ==============================
+   
     db = current_app.mongo.db
-    try:
-        mask_dir = os.path.join(os.path.dirname(__file__), "..", "static", "prendas3d")
-        design_id = data.get("design_id", "base")
-
-        mask_filename = f"mask_{design_id}_rgb.png" if design_id == "base" else f"{design_id}_rgb.png"
-        mask_path = os.path.abspath(os.path.join(mask_dir, mask_filename))
-
-        print(f"Buscando máscara en: {mask_path}")
-
-        plano_url = subir_plano_sublimacion(data, mask_path)
-        print(f"🧵 Plantilla plana subida: {plano_url}")
-        db["prendas_3d"].update_one(
-            {"_id": ObjectId(prenda_id)},
-            {"$set": {"plano_sublimacion_url": plano_url}}
-        )
-    except Exception as e:
-        print("⚠️ Error generando plano de sublimación:", e)
-
-    # ==============================
-    # 6️⃣ Actualizar registro con URL PDF
-    # ==============================
     db["prendas_3d"].update_one(
         {"_id": ObjectId(prenda_id)},
         {"$set": {

@@ -5,12 +5,12 @@ def build_prompt_abstracto(attr: Dict) -> str:
     print("🎨 Entrando a build_prompt_abstracto con:", attr)
 
     try:
-        # ========= 1️⃣ Datos base =========
+        # 1. Atributos que selecciona el usuario
         colores = [c for c in attr.get("colores", []) if isinstance(c, str) and c.strip()]
         num_colores = len(colores)
-        estilo = attr.get("estiloArtistico", "abstract art")  # e.g., "brush strokes", "fluid art"
-        intensidad = attr.get("intensidad", "moderate").lower()  # subtle / bold
-        cobertura = attr.get("cobertura", "full").lower()        # full / partial
+        estilo = attr.get("estiloArtistico", "abstract art") 
+        intensidad = attr.get("intensidad", "moderate").lower() 
+        cobertura = attr.get("cobertura", "full").lower()        
 
         genero = attr.get("genero", "")
         cuello = attr.get("cuello", "")
@@ -22,7 +22,7 @@ def build_prompt_abstracto(attr: Dict) -> str:
             f"with {cuello} neck and {manga} sleeves, made of {tela} fabric"
         )
 
-        # ========= 2️⃣ Descripción del estilo artístico =========
+        # 2. Descripción del estilo artístico
         if estilo == "brush strokes":
             style_desc = "artistic brush strokes with expressive paint textures"
         elif estilo == "paint splatter":
@@ -34,7 +34,7 @@ def build_prompt_abstracto(attr: Dict) -> str:
         else:
             style_desc = "artistic abstract texture blending colors organically"
 
-        # ========= 3️⃣ Colores =========
+        # 3. Colores
         if num_colores == 2:
             color_desc = f"applied on a {colores[0]} base color. The entire artistic pattern uses {colores[1]} as the single primary style hue."
         elif num_colores == 3:
@@ -44,7 +44,7 @@ def build_prompt_abstracto(attr: Dict) -> str:
         else:
             color_desc = "with mixed tones and soft gradients"
 
-        # ========= 4️⃣ Intensidad y cobertura =========
+        # 4. Intensidad y cobertura
         if intensidad == "subtle":
             intensity_desc = "subtle and soft contrast"
         elif intensidad == "bold":
@@ -59,13 +59,13 @@ def build_prompt_abstracto(attr: Dict) -> str:
         else:
             coverage_desc = "balanced coverage across the garment"
 
-        # ========= 5️⃣ Contexto visual =========
+        # 5. Contexto visual
         context = (
             "displayed on an invisible mannequin, perfect studio lighting, catalog style, "
             "sharp focus, plain light gray background, no logos, no text, hyper-detailed textile texture."
         )
 
-        # ========= 6️⃣ Construcción final =========
+        # 6. Construcción final
         pattern_desc = f"{style_desc}, {color_desc}, {intensity_desc}, {coverage_desc}"
         prompt = f"{garment}, {pattern_desc}, {context}"
 
@@ -78,9 +78,7 @@ def build_prompt_abstracto(attr: Dict) -> str:
         raise
 
 
-# =========================================
 # 🇪🇸 Descripción en español
-# =========================================
 def descripcion_abstracto_es(attr: Dict) -> str:
     colores = [c for c in attr.get("colores", []) if isinstance(c, str) and c.strip()]
     estilo = attr.get("estiloArtistico", "arte abstracto")
@@ -88,7 +86,7 @@ def descripcion_abstracto_es(attr: Dict) -> str:
     cobertura = attr.get("cobertura", "")
     genero = attr.get("genero", "unisex")
 
-    # 🔹 Traducciones con diccionario global
+
     estilo_es = TRADUCCIONES.get(estilo, estilo)
     intensidad_es = TRADUCCIONES.get(intensidad, intensidad)
     cobertura_es = TRADUCCIONES.get(cobertura, cobertura)

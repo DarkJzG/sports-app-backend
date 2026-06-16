@@ -20,3 +20,13 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+
+# Carpetas pesadas e irrelevantes para el backend web
+stable-diffusion-webui/
+node_api/node_modules/
+__pycache__/
+
+# Archivos pesados
+sports-app-backend.7z
+uploads/
+outputs/

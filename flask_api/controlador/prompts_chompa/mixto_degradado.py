@@ -12,7 +12,7 @@ def build_prompt_mixto_degradado(attr: Dict) -> str:
     try:
         # Datos estructurales
         tipo_chompa = attr.get("tipoChompa", "hoodie")
-        capucha = attr.get("capucha", "yes")
+        capucha = attr.get("capucha", "Yeah")               # "Yeah" | "No"
         bolsillos = attr.get("bolsillos", "kangaroo")
         tela = attr.get("tela", "polyester")
         genero = attr.get("genero", "unisex")
@@ -26,17 +26,30 @@ def build_prompt_mixto_degradado(attr: Dict) -> str:
         tipo_gradiente = attr.get("tipoGradiente", "linear")
         num_colores = len(colores_gradiente)
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "jacket":
-            garment_type = "zip-up sports jacket"
+            if capucha == "Yeah":
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "Yeah" else "pullover sweatshirt"
+            if capucha == "Yeah":
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "Yeah" else "without hood"
-        
+        # === Bolsillos ===
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "laterales":
+        elif bolsillos in ["laterales", "sides"]:
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -46,15 +59,18 @@ def build_prompt_mixto_degradado(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción del área de diseño
-        if area_diseno == "chest_shoulders":
-            area_desc = "chest, shoulders, and hood area"
-            solid_desc = f"{color_base_mixto} solid color on lower body, sleeves, and back"
-        else:  # cuerpo_inferior
-            area_desc = "lower_body"
-            solid_desc = f"{color_base_mixto} solid color on shoulders, upper chest, and sleeves"
+        # === Descripción del área de diseño ===
+        if area_diseno == "pecho_hombros" or area_diseno == "chest_shoulders":
+            if has_hood:
+                area_desc = "chest, shoulders and hood area"
+            else:
+                area_desc = "chest and shoulders area, no hood"
+            solid_desc = f"{color_base_mixto} solid color on lower body, sleeves and back"
+        else:  # cuerpo_inferior / lower_body
+            area_desc = "lower body"
+            solid_desc = f"{color_base_mixto} solid color on shoulders, upper chest and sleeves"
         
-        # Descripción del degradado según número de colores
+        # === Descripción del degradado según número de colores ===
         if num_colores == 2:
             gradient_desc = (
                 f"{tipo_gradiente} gradient pattern on {area_desc}, "
@@ -63,12 +79,25 @@ def build_prompt_mixto_degradado(attr: Dict) -> str:
         elif num_colores == 3:
             gradient_desc = (
                 f"{tipo_gradiente} gradient pattern on {area_desc}, "
-                f"flowing from {colores_gradiente[0]} through {colores_gradiente[1]} to {colores_gradiente[2]}"
+                f"flowing from {colores_gradiente[0]} through {colores_gradiente[1]} "
+                f"to {colores_gradiente[2]}"
+            )
+        elif num_colores >= 4:
+            gradient_desc = (
+                f"multi-step {tipo_gradiente} gradient on {area_desc}, "
+                f"blending {', '.join(colores_gradiente[:4])}"
             )
         else:
             gradient_desc = f"multi-color {tipo_gradiente} gradient on {area_desc}"
         
-        design_desc = f"Mixed design: {solid_desc}, {gradient_desc}, seamless transition between solid and gradient areas."
+        design_desc = (
+            f"Mixed design: {solid_desc}, {gradient_desc}, "
+            "seamless transition between solid and gradient areas."
+        )
+        
+        # Refuerzo si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         # Contexto visual
         context = (
@@ -86,6 +115,7 @@ def build_prompt_mixto_degradado(attr: Dict) -> str:
     except Exception as e:
         print("❌ Error en build_prompt_mixto_degradado:", e)
         raise
+
 
 
 def descripcion_mixto_degradado_es(attr: Dict) -> str:

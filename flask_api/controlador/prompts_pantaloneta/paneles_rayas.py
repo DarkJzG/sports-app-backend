@@ -115,11 +115,11 @@ def descripcion_paneles_rayas_es(attr: Dict) -> str:
     else:
         largo_desc = "larga"
     
-    if tipo_panel == "thin_stripes":
+    if tipo_panel == "rayas finas":
         panel_desc = "rayas finas laterales"
-    elif tipo_panel == "width_panel":
+    elif tipo_panel == "panel ancho":
         panel_desc = "panel ancho lateral"
-    elif tipo_panel == "curved_panel":
+    elif tipo_panel == "panel curvo":
         panel_desc = "paneles curvos con vivos"
     else:
         panel_desc = "diseño de paneles"

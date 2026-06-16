@@ -32,7 +32,7 @@ def build_prompt_camuflaje(attr: Dict) -> str:
             palette_desc = "desert camouflage palette with beige, tan and light brown tones"
         elif paleta == "urban":
             palette_desc = "urban camouflage palette with gray, white and black tones"
-        elif paleta == "custom":
+        elif paleta == "personalized":
             if colores:
                 palette_desc = f"custom camouflage palette blending {', '.join(colores)} tones"
             else:

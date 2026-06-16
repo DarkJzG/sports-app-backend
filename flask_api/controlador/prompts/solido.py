@@ -66,6 +66,6 @@ def descripcion_solido_es(attr: Dict) -> str:
 
     base = f"Camiseta deportiva para {genero_es.lower()} de color sólido {color1_es}"
     if not usar_color_unico and color_cuello:
-        base += f" con cuello y puños en {color_cuello_es}"
+        base += f" con cuello y puños en color {color_cuello_es}"
 
     return base + "."

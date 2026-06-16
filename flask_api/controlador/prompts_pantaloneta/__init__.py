@@ -34,19 +34,21 @@ def descripcion_pantaloneta_es_v1(attr: dict) -> str:
     """
     Genera la descripción en español según el camino seleccionado
     """
-    camino = attr.get("caminoSeleccionado", "solid")
+    print("🟢 Entrando a descripcion_pantaloneta_es_v1 con:", attr)
+    camino = attr.get("caminoSeleccionado", "solido")
     
-    if camino == "solid":
+    if camino == "solido":
         return descripcion_solido_acentos_es(attr)
-    elif camino == "panels":
+    elif camino == "paneles":
         return descripcion_paneles_rayas_es(attr)
-    elif camino == "sublimation":
-        tipo_diseno = attr.get("tipoDisenoIA", "degraded")
+    elif camino == "sublimacion":
+        tipo_diseno = attr.get("tipoDisenoIA", "degradado")
         mapping = {
-            "degraded": descripcion_sublimacion_degradado_es,
-            "artistic": descripcion_sublimacion_artistico_es,
+            "degradado": descripcion_sublimacion_degradado_es,
+            "artistico": descripcion_sublimacion_artistico_es,
         }
         builder = mapping.get(tipo_diseno, descripcion_sublimacion_degradado_es)
         return builder(attr)
     else:
+        print("🟢 Descripción generada exitosamente")
         return descripcion_solido_acentos_es(attr)

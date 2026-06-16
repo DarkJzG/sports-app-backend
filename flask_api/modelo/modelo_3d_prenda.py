@@ -65,3 +65,8 @@ def obtener_prenda_3d(prenda_id):
         prenda["_id"] = str(prenda["_id"])
         prenda["user_id"] = str(prenda["user_id"])
     return prenda
+
+def get_prendas3d_collection():
+    """Devuelve la colección MongoDB de prendas 3D."""
+    db = current_app.mongo.db
+    return db["prendas_3d"]

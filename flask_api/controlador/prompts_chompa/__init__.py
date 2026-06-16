@@ -9,12 +9,6 @@ from .mixto_personalizado import build_prompt_mixto_personalizado, descripcion_m
 
 
 def build_prompt_chompa_v1(attr: dict) -> str:
-    """
-    Genera el prompt según el camino seleccionado:
-    - solid: Sólido con acentos
-    - blocks: Bloques de color
-    - mixto: Diseño mixto (sólido + sublimado IA)
-    """
     camino = attr.get("caminoSeleccionado", "solid")
     
     if camino == "solid":
@@ -37,23 +31,21 @@ def build_prompt_chompa_v1(attr: dict) -> str:
 
 
 def descripcion_chompa_es_v1(attr: dict) -> str:
-    """
-    Genera la descripción en español según el camino seleccionado
-    """
-    camino = attr.get("caminoSeleccionado", "solid")
+
+    camino = attr.get("caminoSeleccionado", "solido")
     
-    if camino == "solid":
+    if camino == "solido":
         return descripcion_solido_acentos_es(attr)
-    elif camino == "blocks":
+    elif camino == "bloques":
         return descripcion_bloques_color_es(attr)
-    elif camino == "mixed":
-        tipo_diseno = attr.get("tipoDisenoIA", "degraded")
+    elif camino == "mixto":
+        tipo_diseno = attr.get("tipoDisenoIA", "degradado")
         mapping = {
-            "degraded": descripcion_mixto_degradado_es,
-            "geometric": descripcion_mixto_geometrico_es,
-            "artistic": descripcion_mixto_artistico_es,
-            "texture": descripcion_mixto_textura_es,
-            "personalized": descripcion_mixto_personalizado_es,
+            "degradado": descripcion_mixto_degradado_es,
+            "geometrico": descripcion_mixto_geometrico_es,
+            "artistico": descripcion_mixto_artistico_es,
+            "textura": descripcion_mixto_textura_es,
+            "personalizado": descripcion_mixto_personalizado_es,
         }
         builder = mapping.get(tipo_diseno, descripcion_mixto_degradado_es)
         return builder(attr)

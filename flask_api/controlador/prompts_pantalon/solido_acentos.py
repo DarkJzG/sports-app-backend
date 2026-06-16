@@ -101,7 +101,7 @@ def descripcion_solido_acentos_es(attr: Dict) -> str:
         corte_desc = "corte recto"
     
     # Tipo de tobillo
-    if tipo_tobillo == "elastic":
+    if tipo_tobillo == "elastico":
         tobillo_desc = "tobillo elástico"
     else:
         tobillo_desc = "tobillo suelto"
@@ -109,7 +109,7 @@ def descripcion_solido_acentos_es(attr: Dict) -> str:
     # Descripción de bolsillos
     if bolsillos == "lateral_zip":
         bolsillo_desc = "bolsillos laterales con zipper"
-    elif bolsillos == "sides_without_zip":
+    elif bolsillos == "lateral_without_zip":
         bolsillo_desc = "bolsillos laterales simples"
     else:
         bolsillo_desc = "sin bolsillos"

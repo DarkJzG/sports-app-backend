@@ -9,8 +9,8 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
     
     try:
         # Datos estructurales
-        tipo_chompa = attr.get("tipoChompa", "hoodie")
-        capucha = attr.get("capucha", "yes")
+        tipo_chompa = attr.get("tipoChompa", "hoodie")      # "hoodie" | "jacket"
+        capucha = attr.get("capucha", "Yeah")               # "Yeah" | "No"
         bolsillos = attr.get("bolsillos", "kangaroo")
         tela = attr.get("tela", "polyester")
         genero = attr.get("genero", "unisex")
@@ -23,17 +23,30 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
         estilo_artistico = attr.get("estiloArtistico", "brush strokes")
         colores_artistico = attr.get("coloresArtistico", [])
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "jacket":
-            garment_type = "zip-up sports jacket"
+            if capucha == "Yeah":
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "Yeah" else "pullover sweatshirt"
+            if capucha == "Yeah":
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "Yeah" else "without hood"
-        
+        # === Bolsillos ===
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "sides":
+        elif bolsillos in ["sides", "laterales"]:
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -43,15 +56,18 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción del área
-        if area_diseno == "chest_shoulders":
-            area_desc = "chest, shoulders, and hood area"
+        # === Descripción del área ===
+        if area_diseno in ["pecho_hombros", "chest_shoulders"]:
+            if has_hood:
+                area_desc = "chest, shoulders and hood area"
+            else:
+                area_desc = "chest and shoulders area, no hood"
             solid_desc = f"{color_base_mixto} solid color on lower body and sleeves"
         else:
             area_desc = "main body and lower panels"
             solid_desc = f"{color_base_mixto} solid color on shoulders and upper chest"
         
-        # Descripción del estilo artístico
+        # === Descripción del estilo artístico ===
         if estilo_artistico == "brush strokes":
             style_desc = "artistic brush strokes with expressive paint textures"
         elif estilo_artistico == "splashes":
@@ -63,7 +79,7 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
         else:
             style_desc = "artistic abstract texture"
         
-        # Descripción de colores
+        # === Descripción de colores ===
         num_colores = len(colores_artistico)
         if num_colores == 2:
             color_desc = f"in {colores_artistico[0]} and {colores_artistico[1]} tones"
@@ -75,6 +91,10 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
         artistic_desc = f"{style_desc} on {area_desc}, {color_desc}"
         
         design_desc = f"Mixed design: {solid_desc}, {artistic_desc}, bold artistic expression."
+        
+        # Refuerzo si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         context = (
             "displayed on an invisible mannequin, perfect studio lighting, catalog style, "
@@ -91,6 +111,7 @@ def build_prompt_mixto_artistico(attr: Dict) -> str:
     except Exception as e:
         print("❌ Error en build_prompt_mixto_artistico:", e)
         raise
+
 
 
 def descripcion_mixto_artistico_es(attr: Dict) -> str:

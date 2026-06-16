@@ -17,9 +17,8 @@ from flask_api.funciones.enviar_correo import (
     enviar_correo_reset,
 )
 
-# ===============================================================
-# ✅ REGISTRO DE USUARIO
-# ===============================================================
+
+# REGISTRO DE USUARIO
 def register_user(data):
     nombre = data.get("nombre")
     correo = data.get("correo")
@@ -32,7 +31,7 @@ def register_user(data):
     if users.find_one({"correo": correo}):
         return jsonify({"ok": False, "msg": "El correo ya está registrado"}), 400
 
-    # 🔒 Validar seguridad de contraseña
+    # Validar seguridad de contraseña
     if (
         len(password) < 8
         or not re.search(r"[A-Z]", password)
@@ -61,7 +60,7 @@ def register_user(data):
 
     users.insert_one(user)
 
-    # 📧 Enviar correo de verificación
+    # Enviar correo de verificación
     try:
         enviar_correo_verificacion(correo, nombre, token_verificacion)
     except Exception as e:
@@ -70,9 +69,7 @@ def register_user(data):
     return jsonify({"ok": True, "msg": "Usuario registrado. Verifica tu correo."}), 201
 
 
-# ===============================================================
-# ✅ LOGIN CON JWT
-# ===============================================================
+# LOGIN CON JWT
 def login_user(data):
     correo = data.get("correo")
     password = data.get("password")
@@ -109,9 +106,7 @@ def login_user(data):
     }), 200
 
 
-# ===============================================================
-# ✅ VERIFICACIÓN DE CUENTA
-# ===============================================================
+# VERIFICACIÓN DE CUENTA
 def verificar_cuenta(token):
     if not token or token == "null":
         return jsonify({"ok": False, "msg": "Token de verificación faltante o inválido"}), 400
@@ -135,9 +130,7 @@ def verificar_cuenta(token):
     print("✅ Cuenta verificada correctamente")
     return jsonify({"ok": True, "msg": "Cuenta verificada correctamente"}), 200
 
-# ===============================================================
-# ✅ REENVIAR VERIFICACIÓN
-# ===============================================================
+# REENVIAR VERIFICACIÓN
 def reenviar_verificacion(data):
     correo = data.get("correo")
     if not correo:
@@ -164,9 +157,7 @@ def reenviar_verificacion(data):
     return jsonify({"ok": True, "msg": "Se envió un nuevo correo de verificación"}), 200
 
 
-# ===============================================================
-# ✅ RECUPERAR CONTRASEÑA (SOLICITAR RESET)
-# ===============================================================
+# RECUPERAR CONTRASEÑA (SOLICITAR RESET)
 def solicitar_reset_password(data):
     correo = data.get("correo")
     if not correo:
@@ -186,9 +177,7 @@ def solicitar_reset_password(data):
     return jsonify({"ok": True, "msg": "Correo de recuperación enviado"}), 200
 
 
-# ===============================================================
-# ✅ CONFIRMAR RESET PASSWORD
-# ===============================================================
+# CONFIRMAR RESET PASSWORD
 def confirmar_reset_password(data):
     token = data.get("token")
     new_password = data.get("password")
@@ -212,9 +201,7 @@ def confirmar_reset_password(data):
     return jsonify({"ok": True, "msg": "Contraseña actualizada correctamente"}), 200
 
 
-# ===============================================================
-# ✅ CAMBIO DE CONTRASEÑA (USUARIO LOGUEADO)
-# ===============================================================
+# CAMBIO DE CONTRASEÑA (USUARIO LOGUEADO)
 @jwt_required()
 def cambiar_password(data):
     user_id = get_jwt_identity()

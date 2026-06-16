@@ -111,9 +111,7 @@ def build_prompt_rayas(attr: Dict) -> str:
         print("❌ Error dentro de build_prompt_rayas:", e)
         raise
 
-# =========================================
-# 🇪🇸 Descripción en español
-# =========================================
+# Descripción en español
 def descripcion_rayas_es(attr: Dict) -> str:
     colores = [c for c in attr.get("colores", []) if isinstance(c, str) and c.strip()]
     base_color = colores[0] if len(colores) > 0 else "white"
@@ -138,9 +136,9 @@ def descripcion_rayas_es(attr: Dict) -> str:
 
     if grosor:
         base += f" de grosor {grosor_es}"
-    if num_rayas and num_rayas != "random":
-        base += f", con aproximadamente {num_rayas} rayas visibles"
-    elif num_rayas == "random":
+    if num_rayas != "aleatorio":
+        base += f", con {num_rayas} rayas visibles"
+    elif num_rayas == "aleatorio":
         base += ", con número aleatorio de rayas"
     if cobertura:
         base += f" y cobertura {cobertura_es}"

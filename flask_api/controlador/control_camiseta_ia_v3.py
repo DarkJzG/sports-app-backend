@@ -28,10 +28,15 @@ def traducir_texto(texto: str) -> str:
 def traducir_atributos(atributos: dict) -> dict:
     traducidos = {}
     for k, v in atributos.items():
-        if isinstance(v, str):
+        if k == "cuello" and isinstance(v, str):
+            # Si el cuello es "Polo", no traducir
+            if v.strip().lower() == "polo":
+                traducidos[k] = "Polo"
+            else:
+                traducidos[k] = traducir_texto(v)
+        elif isinstance(v, str):
             traducidos[k] = traducir_texto(v)
         elif isinstance(v, list):
-
             traducidos[k] = [
                 traducir_texto(item) if isinstance(item, str) else item
                 for item in v
@@ -39,8 +44,6 @@ def traducir_atributos(atributos: dict) -> dict:
         else:
             traducidos[k] = v
     return traducidos
-
-
 
 # ===============================
 # 💰 Cálculo simple de costo

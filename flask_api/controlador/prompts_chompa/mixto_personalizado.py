@@ -25,17 +25,30 @@ def build_prompt_mixto_personalizado(attr: Dict) -> str:
         estilo_objetos = attr.get("estiloObjetos", "realistic")
         distribucion_objetos = attr.get("distribucionObjetos", "random")
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "chaqueta":
-            garment_type = "zip-up sports jacket"
+            if capucha.lower() in ["yes", "sí", "si"]:
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "yes" else "pullover sweatshirt"
+            if capucha.lower() in ["yes", "sí", "si"]:
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "yes" else "without hood"
-        
+        # === Bolsillos ===
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
-        elif bolsillos == "laterales":
+        elif bolsillos in ["laterales", "sides"]:
             pocket_desc = "with side pockets"
         else:
             pocket_desc = "without pockets"
@@ -45,9 +58,12 @@ def build_prompt_mixto_personalizado(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción del área
+        # === Descripción del área ===
         if area_diseno == "pecho_hombros":
-            area_desc = "chest, shoulders, and hood area"
+            if has_hood:
+                area_desc = "chest, shoulders and hood area"
+            else:
+                area_desc = "chest and shoulders area, no hood"
             solid_desc = f"{color_base_mixto} solid color on lower body and sleeves"
         else:
             area_desc = "main body and lower panels"
@@ -86,6 +102,10 @@ def build_prompt_mixto_personalizado(attr: Dict) -> str:
         objects_desc = f"{dist_desc}, {color_desc}, rendered in {style}"
         
         design_desc = f"Mixed design: {solid_desc}, {objects_desc}, modern streetwear aesthetic."
+        
+        # Refuerzo explícito si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         context = (
             "displayed on an invisible mannequin, perfect studio lighting, catalog style, "

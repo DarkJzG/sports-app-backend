@@ -7,6 +7,8 @@ import google.generativeai as genai
 from flask import jsonify
 from dotenv import load_dotenv
 
+from flask_api.rutas import ruta_contacto
+
 load_dotenv()
 
 from flask import Flask
@@ -59,6 +61,8 @@ from flask_api.rutas.ruta_conjunto_externo_ia_v1 import ruta_conjunto_externo_ia
 from flask_api.rutas.ruta_pantaloneta_ia_v1 import ruta_pantaloneta_ia_v1
 from flask_api.rutas.ruta_prompts import ruta_prompts
 from flask_api.rutas.ruta_prendas_huggingface import ruta_prendas_hf
+from flask_api.rutas.ruta_ia_texturas_huggingface import ruta_ia_texturas_hf
+from flask_api.rutas.ruta_contacto import contacto_bp
 
 
 app = Flask(__name__)
@@ -71,7 +75,6 @@ print(f"Conectando a MongoDB con URI: {mongo_uri}")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
-    print("Gemini API configurada exitosamente.")
 else:
     print("ADVERTENCIA: GEMINI_API_KEY no encontrada.")
 
@@ -80,7 +83,7 @@ app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = "Bearer"
 app.config["JWT_ERROR_MESSAGE_KEY"] = "msg"
-app.config["FRONTEND_URL"] = "http://localhost:3000"
+frontend_url = os.getenv("FRONTEND_URL", "*")
 
 
 
@@ -109,13 +112,13 @@ cloudinary.config(
 CORS(app, 
      resources={r"/*": {
         "origins": [
-            "http://localhost:3000",
-            "http://192.168.3.241:3000"
+            "http://localhost:3000", 
+            "http://192.168.3.241:3000",
+            frontend_url # <-- Agregamos la variable dinámica
         ],
         "methods": ["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Authorization"]
-
     }}, 
     supports_credentials=True)
 
@@ -149,6 +152,7 @@ app.register_blueprint(ruta_ficha_tecnica)
 app.register_blueprint(ruta_3d_prenda)
 app.register_blueprint(ruta_3d_logos)
 app.register_blueprint(ruta_pedido_ficha)
+app.register_blueprint(contacto_bp)
 
 app.register_blueprint(ruta_camiseta_gemini_v3)
 app.register_blueprint(ruta_chompa_ia_v1)
@@ -158,13 +162,15 @@ app.register_blueprint(ruta_pantaloneta_ia_v1)
 app.register_blueprint(ruta_prompts)
 
 app.register_blueprint(ruta_prendas_hf)
+app.register_blueprint(ruta_ia_texturas_hf)
 
 @app.route("/")
 def home():
     return "¡API corriendo correctamente!"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 @app.errorhandler(Exception)
 def handle_error(e):

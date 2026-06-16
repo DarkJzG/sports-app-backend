@@ -34,7 +34,7 @@ def descripcion_es_v3(attr: dict) -> str:
         "camuflaje": descripcion_camuflaje_es,
         "dos_tonos": descripcion_dos_tonos_es,
         "solido": descripcion_solido_es,
-        "personalizado": descripcion_personalizado_es,
+        "diseño_completo": descripcion_personalizado_es,
             }
     builder = mapping.get(diseno, descripcion_degradado_es)
     return builder(attr)

@@ -108,6 +108,9 @@ def build_prompt_sublimacion_degradado(attr: Dict) -> str:
 
 
 def descripcion_sublimacion_degradado_es(attr: Dict) -> str:
+
+    print("🟢 Entrando a descripcion_sublimacion_degradado_es con:", attr)
+
     """Descripción en español del diseño sublimado con degradado"""
     tipo_corte = attr.get("tipoCorte", "joggers")
     area_diseno = attr.get("areaDisenoIA", "complete")
@@ -141,4 +144,5 @@ def descripcion_sublimacion_degradado_es(attr: Dict) -> str:
         elif len(colores_grad_es) >= 3:
             base += f" en tonos {', '.join([c.lower() for c in colores_grad_es])}"
     
+    print("🟢 Descripción generada exitosamente")
     return base + "."

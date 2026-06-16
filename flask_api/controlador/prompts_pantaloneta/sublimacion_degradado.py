@@ -123,14 +123,14 @@ def descripcion_sublimacion_degradado_es(attr: Dict) -> str:
     colores_grad_es = [TRADUCCIONES.get(c, c) for c in colores_gradiente if c]
     genero_es = TRADUCCIONES.get(genero, genero)
     
-    if largo == "short":
+    if largo == "corta":
         largo_desc = "corta"
-    elif largo == "half":
+    elif largo == "media":
         largo_desc = "media"
     else:
         largo_desc = "larga"
     
-    if area_diseno == "complete":
+    if area_diseno == "completo":
         area_desc = "sublimación completa con degradado"
     else:
         color_base_es = TRADUCCIONES.get(color_base_mixto, color_base_mixto)

@@ -12,7 +12,7 @@ def build_prompt_bloques_color(attr: Dict) -> str:
     try:
         # Datos estructurales
         tipo_chompa = attr.get("tipoChompa", "jacket")
-        capucha = attr.get("capucha", "Yeah")
+        capucha = attr.get("capucha", "Yeah")               # "Yeah" | "No"
         bolsillos = attr.get("bolsillos", "kangaroo")
         tela = attr.get("tela", "polyester")
         genero = attr.get("genero", "unisex")
@@ -21,14 +21,27 @@ def build_prompt_bloques_color(attr: Dict) -> str:
         tipo_bloque = attr.get("tipoBloque", "horizontal")
         colores_bloque = attr.get("coloresBloque", [])
         
-        # Construcción del tipo de prenda
+        # === Tipo de prenda y capucha/cuello ===
         if tipo_chompa == "jacket":
-            garment_type = "zip-up sports jacket"
+            if capucha == "Yeah":
+                garment_type = "zip-up sports jacket with hood"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "zip-up sports jacket with high collar, no hood"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         else:
-            garment_type = "pullover hoodie" if capucha == "Yeah" else "pullover sweatshirt"
+            if capucha == "Yeah":
+                garment_type = "pullover hoodie"
+                hood_desc = "with hood"
+                has_hood = True
+            else:
+                garment_type = "pullover sweatshirt with high collar"
+                hood_desc = "with high collar, without hood"
+                has_hood = False
         
-        hood_desc = "with hood" if capucha == "Yeah" else "without hood"
-        
+        # Bolsillos
         if bolsillos == "kangaroo":
             pocket_desc = "with kangaroo pocket"
         elif bolsillos == "laterales":
@@ -41,46 +54,47 @@ def build_prompt_bloques_color(attr: Dict) -> str:
             f"{hood_desc}, {pocket_desc}, made of {tela} fabric"
         )
         
-        # Descripción según el tipo de bloque
+        # === Descripción según el tipo de bloque ===
         if tipo_bloque == "horizontal":
-            # División horizontal: 2 bloques (superior/inferior)
             color1 = colores_bloque[0] if len(colores_bloque) > 0 else "white"
             color2 = colores_bloque[1] if len(colores_bloque) > 1 else "black"
             
             design_desc = (
-                f"Color block design with horizontal split: "
+                "Color block design with horizontal split: "
                 f"upper section (chest, shoulders, upper sleeves) in {color1}, "
                 f"lower section (abdomen, lower sleeves, waist) in {color2}, "
-                f"clean seam line dividing the two color blocks horizontally across the torso."
+                "clean seam line dividing the two color blocks horizontally across the torso."
             )
-            
+        
         elif tipo_bloque == "chevron":
-            # Diseño Chevron "V": 2 bloques
             color1 = colores_bloque[0] if len(colores_bloque) > 0 else "navy blue"
             color2 = colores_bloque[1] if len(colores_bloque) > 1 else "white"
             
             design_desc = (
-                f"Chevron V-shaped color block design: "
+                "Chevron V-shaped color block design: "
                 f"{color1} V-panel on chest extending from shoulders to center chest, "
-                f"{color2} covering the rest of the body, sleeves, and back, "
-                f"bold diagonal seams creating dynamic V-shape across front."
+                f"{color2} covering the rest of the body, sleeves and back, "
+                "bold diagonal seams creating dynamic V-shape across front."
             )
-            
+        
         elif tipo_bloque == "panels":
-            # Paneles deportivos: 3 bloques (hombros/cuerpo/mangas)
             color1 = colores_bloque[0] if len(colores_bloque) > 0 else "black"
             color2 = colores_bloque[1] if len(colores_bloque) > 1 else "white"
             color3 = colores_bloque[2] if len(colores_bloque) > 2 else "gray"
             
             design_desc = (
-                f"Multi-panel color block design: "
+                "Multi-panel color block design: "
                 f"{color1} shoulder and upper chest panels, "
                 f"{color2} main body panel (center torso and back), "
                 f"{color3} sleeve panels, "
-
+                "visible stitching lines emphasizing the panel construction."
             )
         else:
             design_desc = "color block design with multiple fabric panels"
+        
+        # Refuerzo si no hay capucha
+        if not has_hood:
+            design_desc += " This design must NOT include any hood or hood shapes, only a high collar. "
         
         # Contexto visual
         context = (
@@ -100,6 +114,7 @@ def build_prompt_bloques_color(attr: Dict) -> str:
         raise
 
 
+
 def descripcion_bloques_color_es(attr: Dict) -> str:
     """Descripción en español del diseño por bloques"""
     tipo_chompa = attr.get("tipoChompa", "sudadera")
@@ -108,6 +123,7 @@ def descripcion_bloques_color_es(attr: Dict) -> str:
     colores_bloque = attr.get("coloresBloque", [])
     genero = attr.get("genero", "unisex")
     
+    print("🟢 Entrando a descripcion_bloques_color_es con:", attr)
     # Traducciones
     colores_es = [TRADUCCIONES.get(c, c) for c in colores_bloque if c]
     genero_es = TRADUCCIONES.get(genero, genero)
@@ -126,8 +142,13 @@ def descripcion_bloques_color_es(attr: Dict) -> str:
     else:
         bloque_desc = "diseño de bloques de color"
     
+    if capucha == "Sí":
+        capucha_desc = "con capucha"
+    elif capucha == "No":
+        capucha_desc = "sin capucha"
+    
     base = (
-        f"{tipo_desc.capitalize()} deportiva para {genero_es.lower()} "
+        f"{tipo_desc.capitalize()} {capucha_desc} para {genero_es.lower()} "
         f"con {bloque_desc}"
     )
     
@@ -136,8 +157,9 @@ def descripcion_bloques_color_es(attr: Dict) -> str:
             base += f" en colores {colores_es[0].lower()} y {colores_es[1].lower()}"
         elif len(colores_es) >= 3:
             base += f" en colores {colores_es[0].lower()}, {colores_es[1].lower()} y {colores_es[2].lower()}"
-    
-    if capucha == "si":
-        base += ", con capucha"
-    
+
+    print("🟢 Descripción generada exitosamente")
     return base + "."
+
+    
+

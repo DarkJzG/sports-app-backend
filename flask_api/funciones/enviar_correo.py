@@ -12,7 +12,7 @@ def enviar_correo_verificacion(destinatario, nombre, token):
 
     with current_app.app_context():
         msg = Message(
-            subject="Verifica tu cuenta en SmartCloth",
+            subject="Verifica tu cuenta en Johan Sport",
             sender=current_app.config["MAIL_DEFAULT_SENDER"],
             recipients=[destinatario],
         )
@@ -22,7 +22,7 @@ def enviar_correo_verificacion(destinatario, nombre, token):
             <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
                 <div style="max-width: 500px; margin: auto; background-color: white; padding: 20px; border-radius: 10px;">
                     <h2 style="color: #0a3d91;">¡Hola, {nombre}!</h2>
-                    <p>Gracias por registrarte en <b>SmartCloth</b>.</p>
+                    <p>Gracias por registrarte en <b>Johan Sport</b>.</p>
                     <p>Para activar tu cuenta, haz clic en el siguiente botón:</p>
                     <div style="text-align: center; margin: 20px 0;">
                         <a href="{link}" 
@@ -53,7 +53,7 @@ def enviar_correo_reset(destinatario, nombre, token):
 
     with current_app.app_context():
         msg = Message(
-            subject="Recuperación de contraseña - SmartCloth",
+            subject="Recuperación de contraseña - Johan Sport",
             sender=current_app.config["MAIL_DEFAULT_SENDER"],
             recipients=[destinatario],
         )
@@ -81,4 +81,43 @@ def enviar_correo_reset(destinatario, nombre, token):
 
         mail.send(msg)
         print(f"📩 Correo de recuperación enviado correctamente a {destinatario}")
+        return True
+
+
+
+def enviar_correo_contacto(nombre, email, asunto, mensaje):
+    """
+    Envía al correo de la empresa el mensaje enviado desde el formulario de contacto.
+    """
+    from flask_mail import Message
+    from flask import current_app
+    from flask_api.extensiones import mail
+
+    destinatario = current_app.config["MAIL_DEFAULT_SENDER"]  # o un correo fijo de la empresa
+
+    with current_app.app_context():
+        msg = Message(
+            subject=f"Nuevo mensaje de contacto: {asunto}",
+            sender=current_app.config["MAIL_DEFAULT_SENDER"],
+            recipients=[destinatario],
+            reply_to=email
+        )
+
+        msg.html = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
+                <div style="max-width: 600px; margin: auto; background-color: white; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #0a3d91;">Nuevo mensaje desde el formulario de contacto</h2>
+                    <p><b>Nombre:</b> {nombre}</p>
+                    <p><b>Correo:</b> {email}</p>
+                    <p><b>Asunto:</b> {asunto}</p>
+                    <p><b>Mensaje:</b></p>
+                    <p>{mensaje}</p>
+                </div>
+            </body>
+        </html>
+        """
+
+        mail.send(msg)
+        print(f"📩 Mensaje de contacto enviado correctamente desde {email}")
         return True
